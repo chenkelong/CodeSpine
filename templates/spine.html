@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>__TITLE__</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; background:#f8fafc; color:#0f172a; }
+  .mono { font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; }
+
+  header { position:sticky; top:0; z-index:50; background:#fff; border-bottom:1px solid #e2e8f0; padding:12px 0 10px; }
+  .hwrap { max-width:1560px; margin:0 auto; padding:0 20px; }
+  .ht { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  .ht h1 { font-size:18px; }
+  .ht .br { font-size:12px; color:#64748b; }
+  .stats { display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
+  .stats span { font-size:12px; padding:1px 9px; border-radius:999px; border:1px solid #e2e8f0; background:#f8fafc; color:#475569; }
+  .stats .a { color:#047857; border-color:#a7f3d0; background:#ecfdf5; }
+  .stats .d { color:#b91c1c; border-color:#fecaca; background:#fef2f2; }
+  .sum { font-size:12.5px; color:#334155; margin-top:7px; line-height:1.65; max-width:1180px; }
+  .legend { display:flex; gap:14px; margin-top:7px; font-size:12px; color:#475569; flex-wrap:wrap; align-items:center; }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:4px; vertical-align:-1px; }
+
+  .wrap { padding:16px 20px 80px; max-width:1560px; margin:0 auto; }
+  .entries-label { font-size:12px; font-weight:700; color:#64748b; letter-spacing:1px; margin:2px 0 8px; }
+  .entries { display:flex; gap:12px; flex-wrap:nowrap; overflow-x:auto; padding:2px 2px 10px; scrollbar-width:thin; }
+  .entries::-webkit-scrollbar { height:6px; }
+  .entries::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
+  .entries::-webkit-scrollbar-track { background:transparent; }
+  .entry { flex-shrink:0; width:250px; height:98px; background:#fff; border:1.5px dashed #cbd5e1; border-radius:12px; padding:9px 12px; cursor:pointer; transition:all .15s; color:#475569; display:flex; flex-direction:column; justify-content:space-between; overflow:hidden; }
+  .entry:hover { border-color:#94a3b8; transform:translateY(-1px); }
+  .entry.active { border:2px solid #2563eb; border-style:solid; background:#fff; color:#0f172a; box-shadow:0 4px 14px rgba(37,99,235,.15); }
+  .e-r1 { display:flex; align-items:center; gap:6px; min-width:0; }
+  .e-http { flex-shrink:0; font-size:10.5px; font-weight:800; color:#fff; background:#64748b; border-radius:4px; padding:1px 6px; }
+  .e-path { font-size:12px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .e-r2 { display:flex; align-items:center; gap:6px; }
+  .e-impact { font-size:11px; font-weight:600; color:#b45309; background:#fffbeb; border:1px solid #fcd34d; border-radius:999px; padding:1px 8px; white-space:nowrap; }
+  .e-grey { font-size:10.5px; color:#94a3b8; white-space:nowrap; }
+  .e-r3 { font-size:10.5px; color:#94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .entry.orphan-e { border-color:#f59e0b; }
+  .entry.orphan-e .e-http { background:#b45309; }
+  .entry.orphan-e.active { border-color:#b45309; box-shadow:0 4px 14px rgba(180,83,9,.18); }
+
+  .layout { display:flex; gap:16px; align-items:flex-start; margin-top:18px; }
+  .left { flex:1; min-width:0; }
+  .panel-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:10px; }
+  .panel-title { font-size:14px; font-weight:700; }
+  .toggle { display:inline-flex; border:1px solid #cbd5e1; border-radius:8px; overflow:hidden; font-size:12px; flex-shrink:0; }
+  .toggle button { border:0; background:#fff; color:#64748b; padding:4px 12px; cursor:pointer; }
+  .toggle button.on { background:#0f172a; color:#fff; }
+
+  .strip { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:9px 14px; font-size:12.5px; color:#334155; display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  .strip b { font-size:11px; color:#64748b; font-weight:700; letter-spacing:1px; }
+  .fchip { font-size:11.5px; font-family:ui-monospace,Menlo,monospace; color:#065f46; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:5px; padding:1px 7px; }
+
+  .tree ul { list-style:none; margin-left:15px; padding-left:16px; border-left:2px solid #e2e8f0; }
+  .tree > ul { margin-left:0; }
+  .tree li { position:relative; padding:5px 0 5px 4px; }
+  .tree li::before { content:""; position:absolute; left:-16px; top:19px; width:12px; height:2px; background:#e2e8f0; }
+  .branch-tag { position:absolute; left:-34px; top:12px; font-size:10px; font-weight:800; color:#94a3b8; }
+
+  .node { display:inline-block; min-width:340px; max-width:660px; background:#fff; border:1px solid #e2e8f0; border-left-width:4px; border-radius:9px; padding:8px 12px; box-shadow:0 1px 5px rgba(15,23,42,.06); cursor:pointer; }
+  .node.new { border-left-color:#059669; }
+  .node.changed { border-left-color:#2563eb; }
+  .node.unchanged { border-left-color:#cbd5e1; background:#fbfdfe; }
+  .node.external { border-left-color:#cbd5e1; border-style:dashed; background:#f8fafc; cursor:default; }
+  .node.hub { box-shadow:0 2px 10px rgba(5,150,105,.16); }
+  .node.flash { animation:flash 1.6s ease; }
+  @keyframes flash { 0%,60% { box-shadow:0 0 0 3px rgba(245,158,11,.7); } 100% { box-shadow:0 1px 5px rgba(15,23,42,.06); } }
+  .n-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:4px 6px; margin:-8px -12px 6px; border-radius:8px 8px 0 0; border-bottom:1px solid #eef2f7; }
+  .node.new .n-head { background:#f0fdf9; }
+  .node.changed .n-head { background:#f5f9ff; }
+  .node.unchanged .n-head { background:#f8fafc; }
+  .node.external .n-head { background:#fafbfc; }
+  .n-kind { font-size:10px; font-weight:800; border-radius:4px; padding:1px 6px; }
+  .new .n-kind { color:#047857; background:#d1fae5; }
+  .changed .n-kind { color:#1d4ed8; background:#dbeafe; }
+  .unchanged .n-kind, .external .n-kind { color:#64748b; background:#f1f5f9; }
+  .n-cls { font-size:13px; font-weight:700; }
+  .n-method { font-size:12px; color:#475569; font-weight:600; }
+  .n-stats { font-size:11px; color:#94a3b8; }
+  .n-stats b.g { color:#047857; } .n-stats b.r { color:#b91c1c; }
+  .n-badge { font-size:10.5px; color:#475569; border:1px dashed #94a3b8; border-radius:5px; padding:0 6px; }
+  .n-note { font-size:11.5px; color:#94a3b8; margin-top:3px; line-height:1.5; }
+  .n-pc { font-size:10px; font-weight:800; color:#92400e; background:#fef3c7; border:1px solid #fcd34d; border-radius:4px; padding:1px 6px; cursor:help; }
+  .param-card { background:#fff; border:1px solid #e2e8f0; border-left-width:4px; border-radius:9px; padding:8px 12px; margin-bottom:14px; cursor:pointer; max-width:660px; }
+  .param-card.p-changed { border-left-color:#2563eb; }
+  .param-card.p-unchanged { border-left-color:#cbd5e1; }
+  .param-card:hover { box-shadow:0 2px 8px rgba(15,23,42,.09); }
+  .p-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .p-tag { font-size:10px; font-weight:800; border-radius:4px; padding:1px 6px; background:#f1f5f9; color:#64748b; }
+  .p-dto { font-size:12.5px; font-weight:700; }
+  .p-fields { margin:5px 0 2px 18px; display:flex; flex-direction:column; gap:3px; border-left:2px solid #e2e8f0; padding-left:12px; }
+  .p-field { font-size:11.5px; display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; }
+  .p-field .fs { font-weight:800; width:12px; }
+  .p-field .fn { font-family:ui-monospace,Menlo,monospace; font-weight:700; }
+  .p-field .ft { color:#94a3b8; font-family:ui-monospace,Menlo,monospace; font-size:10.5px; }
+  .p-field .fd { color:#94a3b8; }
+  .p-field.k-new .fs, .p-field.k-new .fn { color:#047857; }
+  .p-field.k-modified .fs, .p-field.k-modified .fn { color:#1d4ed8; }
+  .p-field.k-deleted .fs, .p-field.k-deleted .fn { color:#b91c1c; }
+  .collapsed-pill { display:inline-block; font-size:11.5px; color:#94a3b8; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:999px; padding:2px 10px; cursor:pointer; }
+
+  .callines { display:flex; flex-direction:column; gap:3px; margin-top:6px; }
+  .cline { display:flex; align-items:center; gap:8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:2px 8px; font-size:11px; }
+  .cline .ln { color:#94a3b8; flex-shrink:0; font-weight:700; }
+  .cline .code { font-family:ui-monospace,Menlo,monospace; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:520px; }
+  .cline .nx { flex-shrink:0; font-size:10px; color:#1d4ed8; background:#eff6ff; border:1px solid #bfdbfe; border-radius:4px; padding:0 6px; white-space:nowrap; }
+
+  .ref-chip { display:inline-block; font-size:11.5px; background:#f8fafc; border:1.5px dashed #94a3b8; border-radius:999px; padding:3px 12px; color:#475569; cursor:pointer; }
+  .ref-chip .rc { font-family:ui-monospace,Menlo,monospace; font-weight:700; color:#334155; }
+  .ref-chip.k-new { border-color:#6ee7b7; }
+  .ref-chip.k-changed { border-color:#93c5fd; }
+  .ref-chip .rb { font-size:10px; color:#92400e; background:#fef3c7; border-radius:4px; padding:0 5px; margin:0 4px; }
+  .ref-chip .rn { color:#94a3b8; }
+
+  .phase { margin-top:7px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:7px 9px; }
+  .phase-name { font-size:11px; font-weight:800; color:#64748b; letter-spacing:.5px; margin-bottom:5px; }
+  .blocks { display:flex; flex-direction:column; gap:5px; }
+  .block { background:#fff; border:1px solid #e2e8f0; border-left-width:3px; border-radius:7px; padding:5px 9px; cursor:pointer; transition:all .12s; }
+  .block:hover { border-color:#94a3b8; box-shadow:0 1px 6px rgba(15,23,42,.1); transform:translateY(-1px); }
+  .block.k-new { border-left-color:#059669; }
+  .block.k-changed { border-left-color:#2563eb; }
+  .b-head { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .b-name { font-size:12.5px; font-weight:700; color:#0f172a; }
+  .b-range { font-size:10.5px; color:#94a3b8; }
+  .b-in { font-size:10.5px; color:#0369a1; font-weight:700; }
+  .b-via { display:block; font-size:10px; color:#94a3b8; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:600px; cursor:help; }
+  .b-via::before { content:"⇢ "; color:#cbd5e1; }
+  .b-in::before { content:"#"; opacity:.6; }
+  .b-kind { font-size:9.5px; font-weight:800; padding:0 5px; border-radius:3px; }
+  .b-no { font-size:11px; color:#64748b; font-weight:800; }
+  .block.k-new .b-kind { color:#047857; background:#d1fae5; }
+  .block.k-changed .b-kind { color:#1d4ed8; background:#dbeafe; }
+  .b-desc { font-size:11.5px; color:#64748b; margin-top:2px; line-height:1.5; }
+  .b-calls { display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
+  .call { font-size:11px; font-family:ui-monospace,Menlo,monospace; border-radius:5px; border:1px solid; padding:1px 7px; cursor:pointer; }
+  .call::before { content:"→ "; opacity:.6; }
+  .call.k-new { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
+  .call.k-changed { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
+  .call.k-ext { background:#f8fafc; border-color:#cbd5e1; border-style:dashed; color:#64748b; }
+  .call:hover { transform:translateY(-1px); }
+  .call span { pointer-events:none; }
+  .snip { font-family:ui-monospace,Menlo,monospace; font-size:11px; background:#0f172a; color:#e2e8f0; border-radius:8px; padding:8px 10px; white-space:pre-wrap; word-break:break-all; line-height:1.6; margin:4px 0 2px; }
+  .snip .sl { color:#94a3b8; margin-right:10px; user-select:none; flex-shrink:0; }
+  .snip .sline { display:flex; }
+  .snip .sline .sa { color:#86efac; white-space:pre-wrap; word-break:break-all; }
+  .snip .sline .sc { color:#cbd5e1; white-space:pre-wrap; word-break:break-all; }
+  .snip .sline .sd2 { color:#fca5a5; white-space:pre-wrap; word-break:break-all; }
+
+  aside.detail { width:clamp(360px, 38.2vw, 520px); position:sticky; top:128px; max-height:calc(100vh - 148px); overflow:auto; flex-shrink:0; display:flex; flex-direction:column; gap:12px; }
+  .dcard { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:14px 16px; box-shadow:0 2px 12px rgba(15,23,42,.07); position:relative; }
+  .dcard.hint-card { border-style:dashed; color:#94a3b8; text-align:center; font-size:12px; padding:22px 16px; box-shadow:none; background:#fbfdfe; }
+  .dc-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:-14px -16px 10px; padding:9px 16px; border-radius:12px 12px 0 0; border-bottom:1px solid #e2e8f0; font-size:12.5px; font-weight:800; }
+  .dc-head .dc-k { font-size:10px; font-weight:800; padding:1px 8px; border-radius:999px; background:rgba(255,255,255,.8); }
+  .dc-entry { background:#eff6ff; color:#1e40af; }
+  .dc-node { background:#f1f5f9; color:#334155; }
+  .dc-node.k-new { background:#ecfdf5; color:#065f46; }
+  .dc-node.k-changed { background:#eff6ff; color:#1e40af; }
+  .dc-param { background:#ecfdf5; color:#065f46; }
+  .dc-orph { background:#fffbeb; color:#92400e; }
+  .d-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .d-kind { font-size:10px; font-weight:800; border-radius:4px; padding:1px 6px; background:#f1f5f9; color:#64748b; }
+  .d-cls { font-size:14px; font-weight:800; word-break:break-all; }
+  .d-method { font-size:12px; color:#475569; font-weight:600; }
+  .d-note { font-size:12px; color:#64748b; margin-top:6px; line-height:1.6; }
+  .d-sec { margin-top:12px; padding-top:10px; border-top:1px dashed #e2e8f0; }
+  .d-sec-t { font-size:11px; font-weight:800; color:#475569; letter-spacing:1px; margin:0 0 6px; background:#f8fafc; border-left:3px solid #94a3b8; padding:3px 8px; border-radius:4px; }
+  .mt { width:100%; border-collapse:collapse; font-size:11.5px; }
+  .mt th { text-align:left; background:#f1f5f9; color:#64748b; font-size:10.5px; letter-spacing:.5px; padding:4px 8px; border:1px solid #e2e8f0; }
+  .mt td { padding:4px 8px; border:1px solid #e2e8f0; vertical-align:top; }
+  .mt td.mono { font-size:11px; }
+  .mt .k-new { color:#047857; font-weight:700; }
+  .mt .k-modified { color:#1d4ed8; font-weight:700; }
+  .mt .k-deleted { color:#b91c1c; font-weight:700; }
+  .copyrow { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .copytxt { flex:1; min-width:0; font-size:11px; font-family:ui-monospace,Menlo,monospace; color:#334155; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:4px 8px; word-break:break-all; }
+  .cbtn { flex-shrink:0; font-size:11px; font-weight:600; color:#334155; background:#fff; border:1px solid #cbd5e1; border-radius:6px; padding:3px 10px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:all .15s; line-height:1.4; }
+  .cbtn::before { content:"⧉"; font-size:11px; opacity:.7; }
+  .cbtn:hover { border-color:#2563eb; color:#1d4ed8; background:#eff6ff; }
+  .cbtn:active { transform:scale(.96); }
+  .cbtn.ok { border-color:#34d399; color:#047857; background:#ecfdf5; }
+  .mt tr.rowcopy { cursor:pointer; }
+  .mt tr.rowcopy:hover td { background:#f8fafc; }
+  .mt td .cbtn { padding:2px 8px; font-size:10.5px; }
+  .d-blockrow { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+  .d-blockrow .bn { font-size:12px; font-weight:600; }
+  .d-blockrow .br2 { font-size:10.5px; color:#94a3b8; font-family:ui-monospace,Menlo,monospace; }
+  .d-blockrow .cbtn { padding:2px 8px; font-size:10px; }
+  .d-close { display:none; }
+
+  .orphans { margin-top:22px; }
+  .orphans-t { font-size:13px; font-weight:800; color:#b45309; margin-bottom:8px; }
+  .orphan-list { display:flex; gap:12px; flex-wrap:wrap; }
+
+  @media (max-width:1080px) {
+    aside.detail { position:fixed; right:12px; top:130px; bottom:12px; width:min(420px, 92vw); z-index:80; display:none; box-shadow:0 8px 30px rgba(15,23,42,.2); }
+    aside.detail.open { display:block; }
+    .d-close { display:block; position:absolute; top:8px; right:10px; font-size:16px; color:#94a3b8; background:none; border:0; cursor:pointer; }
+    aside.detail { padding-top:26px; }
+  }
+  .viewseg { display:inline-flex; border:1px solid #cbd5e1; border-radius:8px; overflow:hidden; font-size:12px; }
+  .viewseg button { border:0; background:#fff; color:#64748b; padding:4px 12px; cursor:pointer; }
+  .viewseg button.on { background:#0f172a; color:#fff; }
+  .corridor { display:flex; flex-direction:column; gap:14px; }
+  .cor-file { background:#fff; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; }
+  .cor-head { display:flex; align-items:center; gap:8px; padding:8px 14px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+  .cor-cls { font-size:13px; font-weight:800; }
+  .cor-kind { font-size:10px; font-weight:800; padding:1px 6px; border-radius:4px; }
+  .cor-kind.k-new { background:#d1fae5; color:#047857; }
+  .cor-kind.k-changed { background:#dbeafe; color:#1d4ed8; }
+  .cor-kind.k-unchanged { background:#f1f5f9; color:#64748b; }
+  .cor-body { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11.5px; line-height:1.75; padding:0; background:#fff; }
+  .cor-line { display:flex; cursor:pointer; }
+  .cor-line:hover { outline:1px solid #94a3b8; outline-offset:-1px; }
+  .cor-ln { width:44px; flex-shrink:0; color:#94a3b8; text-align:right; padding:0 6px; user-select:none; font-size:10px; align-self:stretch; display:flex; align-items:center; justify-content:flex-end; background:#f6f8fa; border-right:1px solid #e1e4e8; }
+  .cor-mk { width:22px; flex-shrink:0; text-align:center; font-weight:800; user-select:none; align-self:stretch; display:flex; align-items:center; justify-content:center; font-size:11px; }
+  .cor-code { flex:1; white-space:pre-wrap; word-break:break-all; padding:0 10px 0 6px; }
+  .cor-line.k-add { background:#e6ffec; }
+  .cor-line.k-add .cor-mk { color:#1a7f37; }
+  .cor-line.k-add .cor-code { color:#116329; }
+  .cor-line.k-del { background:#ffebe9; }
+  .cor-line.k-del .cor-mk { color:#cf222e; }
+  .cor-line.k-del .cor-code { color:#82071e; }
+  .cor-line.k-ctx .cor-mk { color:#d0d7de; }
+  .cor-line.k-ctx .cor-code { color:#24292f; }
+  .cor-hunk { display:flex; align-items:center; gap:8px; background:#ddf4ff; color:#0550ae; font-size:10.5px; padding:2px 10px 2px 52px; user-select:none; }
+  .cor-hunk b { font-weight:700; }
+  .cor-mark { font-size:9.5px; color:#0550ae; background:#ddf4ff; border-radius:4px; padding:0 6px; margin:0 8px 0 10px; flex-shrink:0; align-self:center; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:-apple-system,"PingFang SC",sans-serif; }
+  .cor-bc { display:flex; align-items:center; flex-wrap:wrap; gap:6px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:7px 12px; margin-bottom:12px; font-size:11px; }
+  .bc-item { color:#334155; font-family:ui-monospace,Menlo,monospace; }
+  .bc-sep { color:#cbd5e1; }
+  .cor-pass { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px; padding:5px 12px; margin-bottom:8px; }
+  .pass-cls { font-size:12px; font-weight:700; color:#475569; }
+  .pass-line { font-size:10.5px; color:#94a3b8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:520px; }
+  .cor-from { font-size:10px; color:#64748b; background:#f1f5f9; border-radius:4px; padding:1px 6px; }
+  .cor-ret { font-size:10.5px; color:#94a3b8; padding:2px 0 6px; user-select:none; }
+  .cor-block { border-top:1px solid #f1f5f9; }
+  .cor-bhead { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:6px 12px; background:#f8fafc; border-left:3px solid #2563eb; cursor:pointer; user-select:none; }
+  .cor-bhead:hover { background:#f1f5f9; }
+  .b-name2 { font-size:12px; font-weight:800; color:#0f172a; }
+  .b-btns { margin-left:auto; display:flex; gap:6px; align-items:center; }
+  .b-btns .cbtn { padding:1px 9px; font-size:10px; }
+  .b-fold { color:#94a3b8; font-size:12px; margin-left:2px; }
+  .cor-block.folded .cor-bbody { display:none; }
+  .cor-block.folded .b-fold::after { content:"▸"; }
+  .b-fold::after { content:"▾"; }
+  .layout.full aside.detail { display:none; }
+  .layout.full .left { max-width:1180px; }
+  .cor-gap { display:flex; align-items:center; gap:10px; color:#cbd5e1; font-size:10.5px; padding:1px 14px; user-select:none; }
+  .cor-gap::before, .cor-gap::after { content:""; flex:1; border-top:1px dashed #e2e8f0; }
+  .footer { text-align:center; font-size:11px; color:#94a3b8; padding:10px 0 30px; }
+</style>
+</head>
+<body>
+<header><div class="hwrap">
+  <div class="ht"><h1>__TITLE__</h1><span class="br mono">__BRANCH__</span></div>
+  <div class="stats">
+    <span>__FILES__ 文件</span><span class="a">+__ADD__</span><span class="d">−__DEL__</span>
+    __ENTRIES_BADGE__
+    __COVERAGE_BADGE__
+  </div>
+  <div class="sum">__SUMMARY__</div>
+  <div class="legend">
+    <span><span class="dot" style="background:#059669"></span>新增</span>
+    <span><span class="dot" style="background:#2563eb"></span>修改</span>
+    <span><span class="dot" style="background:#cbd5e1"></span>未变更/外部</span>
+    <span><span class="n-pc" style="cursor:default">参数变更</span>方法签名/传参变化</span>
+    <span style="color:#94a3b8">点击卡片看右栏详情并可复制路径 · 块内 → 引用可点击定位</span>
+  </div>
+</div></header>
+<div class="wrap">
+  <div class="entries-label">受影响入口（点击查看链路与详情）</div>
+  <div class="entries" id="entries"></div>
+  <div class="layout">
+    <div class="left">
+      <div class="panel-bar">
+        <div class="panel-title" id="panel-title"></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div class="viewseg">
+            <button id="btn-view-chain" class="on">链路图</button>
+            <button id="btn-view-corridor">代码走廊</button>
+          </div>
+          <div class="toggle" id="mode-toggle">
+            <button id="btn-lesion" class="on">只看脊痕</button>
+            <button id="btn-spine">完整码脊</button>
+          </div>
+        </div>
+      </div>
+      <div id="chain"></div>
+      <div class="orphans" id="orphans"></div>
+    </div>
+    <aside class="detail" id="detail"></aside>
+  </div>
+</div>
+<div class="footer">__GENBY__</div>
+<script>
+var DATA = __DATA__;
+var currentId = DATA.entries[0].id;
+var selectedNode = null;
+var selectedParam = null;
+var selectedRef = null;
+var selectedBlock = null;
+var REF = [];
+var BLK = [];
+var mode = 'lesion';
+var view = 'chain';
+var entriesEl = document.getElementById('entries');
+var chainEl = document.getElementById('chain');
+var detailEl = document.getElementById('detail');
+
+function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fqcn(path) {
+  if (!path) return '';
+  return path.split('src/main/java/').pop().split('.java')[0].split('/').join('.');
+}
+function copyText(t, btn) {
+  function done() { if (btn) { btn.classList.add('ok'); var old = btn.textContent; btn.textContent = '已复制'; setTimeout(function () { btn.textContent = old; btn.classList.remove('ok'); }, 1200); } }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).then(done, function () { fallback(t, done); });
+  } else { fallback(t, done); }
+}
+function fallback(t, done) {
+  var ta = document.createElement('textarea');
+  ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  document.body.removeChild(ta); done();
+}
+
+var KIND_NAME = { new: '新增', changed: '修改', unchanged: '未变更', external: '外部', ext: '外部', deleted: '删除' };
+
+var ORPHAN_ENTRY = { id: '__orphans__', special: true, http: '链路', path: '未挂链变更', group: '覆盖率校验 · 无上游入口的非调用引用', impactNote: (DATA.orphans || []).length + ' 项独立变更' };
+function allEntries() { return DATA.entries.concat([ORPHAN_ENTRY]); }
+
+function entryCard(e) {
+  var d = document.createElement('div');
+  d.className = 'entry' + (e.special ? ' orphan-e' : '') + (e.id === currentId ? ' active' : '');
+  d.setAttribute('data-entry', e.id);
+  d.innerHTML =
+    '<div class="e-r1"><span class="e-http">' + esc(e.http) + '</span><span class="e-path mono" title="' + esc(e.path) + '">' + esc(e.path) + '</span></div>' +
+    '<div class="e-r2"><span class="e-impact">' + esc(e.impactNote) + '</span><span class="e-grey">入口未变更</span></div>' +
+    '<div class="e-r3" title="' + esc(e.group) + '">' + esc(e.group) + '</div>';
+  d.addEventListener('click', function () { currentId = e.id; selectedNode = null; selectedParam = null; selectedRef = null; selectedBlock = null; render(); renderRight(); });
+  return d;
+}
+
+function callChip(c) {
+  var id = REF.push(c) - 1;
+  var short = c.d && c.d.length <= 26 ? c.d : (c.d ? c.d.split('：')[0].split('，')[0] : '');
+  return '<span class="call k-' + c.kind + '" data-fn="' + esc(c.fn) + '" data-ref="' + id + '" title="' + esc(c.d || '') + '">' + esc(c.fn) + (short ? '<span> · ' + esc(short) + '</span>' : '') + '</span>';
+}
+function blockHtml(b, owner, idx) {
+  var bid = BLK.push({ n: owner, b: b }) - 1;
+  var marks = ['①', '②', '③', '④', '⑤', '⑥', '⑦'];
+  var h = '<div class="block k-' + b.kind + '" data-bid="' + bid + '" title="点击查看关键代码与详情">';
+  h += '<div class="b-head">' + (idx != null && idx < 7 ? '<span class="b-no">' + marks[idx] + '</span>' : '') + '<span class="b-kind">' + (KIND_NAME[b.kind] || '') + '</span><span class="b-name">' + esc(b.name) + '</span>' + (b.in ? '<span class="b-in mono">' + esc(b.in) + '</span>' : '') + '<span class="b-range mono">' + esc(b.range) + '</span></div>';
+  if (b.desc) h += '<div class="b-desc">' + esc(b.desc) + '</div>';
+  if (b.via && b.via.length) h += '<div class="b-via" title="' + esc(b.via.map(function (v) { return v.m + ' · L' + v.ln; }).join('  ›  ')) + '">' + esc(b.via.map(function (v) { return v.m; }).join(' → ')) + '</div>';
+  if (b.snippet && b.snippet.length) h += '<div class="b-desc" style="color:#0369a1">' + b.snippet.length + ' 行关键代码 · ' + esc(b.range) + ' · 点击查看</div>';
+  if (b.calls && b.calls.length) h += '<div class="b-calls">' + b.calls.map(callChip).join('') + '</div>';
+  return h + '</div>';
+}
+function callLinesHtml(n) {
+  if (!n.callLines || !n.callLines.length) return '';
+  var h = '<div class="callines">';
+  n.callLines.forEach(function (c) {
+    h += '<div class="cline"><span class="ln mono">L' + c.ln + '</span><span class="code">' + esc(c.text) + '</span>' + (c.next ? '<span class="nx">→ ' + esc(c.next) + '</span>' : '') + '</div>';
+  });
+  return h + '</div>';
+}
+function bodyHtml(n) {
+  var h = '';
+  if (n.phases && n.phases.length) {
+    n.phases.forEach(function (p) {
+      h += '<div class="phase"><div class="phase-name">' + esc(p.name) + '</div><div class="blocks">' + p.blocks.map(function (b, i2) { return blockHtml(b, n, i2); }).join('') + '</div></div>';
+    });
+    return h;
+  }
+  if (n.blocks && n.blocks.length) return '<div class="blocks" style="margin-top:7px">' + n.blocks.map(function (b, i2) { return blockHtml(b, n, i2); }).join('') + '</div>';
+  return h;
+}
+function nodeCard(n, seen) {
+  if (n.kind === 'unchanged' && mode === 'lesion' && !n.callLines) {
+    return '<span class="collapsed-pill" data-uid="' + esc(n.uid) + '" title="' + esc(n.note || '') + '">⋯ 经由 ' + esc(n.cls) + (n.method ? '#' + esc(n.method) : '') + '（未变更，点击看详情）</span>';
+  }
+  var dup = (n.refOnly || seen[n.cls]) && n.kind !== 'external';
+  seen[n.cls] = true;
+  if (dup) {
+    var h = '<span class="ref-chip k-' + n.kind + '" data-cls="' + esc(n.cls) + '">🔁 <span class="rc">' + esc(n.cls) + '</span>';
+    if (n.badge) h += '<span class="rb">' + esc(n.badge) + '</span>';
+    if (n.note) h += '<span class="rn">' + esc(n.note) + '</span>';
+    return h + '</span>';
+  }
+  if (n.kind === 'unchanged' && mode === 'lesion') {
+    return '<div class="node unchanged" data-uid="' + esc(n.uid) + '"><div class="n-head"><span class="n-kind">未变更</span><span class="n-cls mono">' + esc(n.cls) + '</span>' + (n.method ? '<span class="n-method mono">#' + esc(n.method) + '</span>' : '') + '</div>' + callLinesHtml(n) + '</div>';
+  }
+  var kindName = KIND_NAME[n.kind] || n.kind;
+  var h = '<div class="node ' + n.kind + (n.hub ? ' hub' : '') + '" data-uid="' + esc(n.uid) + '">';
+  h += '<div class="n-head"><span class="n-kind">' + kindName + '</span>';
+  h += '<span class="n-cls mono">' + esc(n.cls) + '</span>';
+  if (n.method) h += '<span class="n-method mono">#' + esc(n.method) + '</span>';
+  if (n.stats) h += '<span class="n-stats"><b class="g">+' + n.stats[0] + '</b> <b class="r">−' + n.stats[1] + '</b></span>';
+  if (n.badge) h += '<span class="n-badge">' + esc(n.badge) + '</span>';
+  if (n.paramChanged) h += '<span class="n-pc" title="' + esc(n.pcNote || '') + '">参数变更</span>';
+  h += '</div>';
+  if (n.note) h += '<div class="n-note">' + esc(n.note) + '</div>';
+  h += callLinesHtml(n);
+  h += bodyHtml(n);
+  return h + '</div>';
+}
+function renderList(nodes, seen) {
+  if (!nodes || !nodes.length) return '';
+  var multi = nodes.length > 1;
+  var marks = ['①', '②', '③', '④', '⑤'];
+  var h = '<ul>';
+  nodes.forEach(function (n, i) {
+    h += '<li>' + (multi ? '<span class="branch-tag">' + marks[i] + '</span>' : '') + nodeCard(n, seen) + renderList(n.children, seen) + '</li>';
+  });
+  return h + '</ul>';
+}
+
+function paramSectionHtml(p) {
+  if (!p.objects || !p.objects.length) {
+    var pf = (p.newFields || []).map(function (f) { return '<span class="fchip">+' + esc(f) + '</span>'; }).join(' ');
+    return '<div class="strip"><b>入参</b><span class="mono">' + esc(p.dto) + '</span>' + (p.note ? '<span style="color:#64748b">' + esc(p.note) + '</span>' : '') + pf + '</div>';
+  }
+  var h = '<div class="param-card p-' + (p.state === 'changed' ? 'changed' : 'unchanged') + '" data-pobj="' + esc(p.objects[0].name) + '">';
+  h += '<div class="p-row"><span class="p-tag">' + (p.state === 'changed' ? '修改' : '未变更') + '</span><span class="p-dto mono">' + esc(p.dto) + '</span><span style="font-size:11px;color:#94a3b8">' + esc(p.note || '') + '</span></div>';
+  p.objects.forEach(function (o) {
+    h += '<div style="margin-top:6px;font-size:11.5px;color:#475569">└ <b class="mono">' + esc(o.name) + '</b> <span style="color:#94a3b8">' + esc(o.where || '') + '</span></div>';
+    h += '<div class="p-fields">';
+    (o.fields || []).forEach(function (f) {
+      var sign = f.k === 'new' ? '+' : f.k === 'deleted' ? '−' : '~';
+      h += '<div class="p-field k-' + f.k + '"><span class="fs">' + sign + '</span><span class="fn">' + esc(f.n) + '</span><span class="ft">' + esc(f.t || '') + '</span><span class="fd">' + esc(f.d || '') + '</span></div>';
+    });
+    h += '</div>';
+  });
+  return h + '</div>';
+}
+
+function showParamDetail(name) {
+  var e = DATA.entries.filter(function (x) { return x.id === currentId; })[0];
+  if (!e || !e.params || !e.params.objects) return;
+  var obj = e.params.objects.filter(function (o) { return o.name === name; })[0];
+  if (!obj) return;
+  selectedParam = obj; selectedNode = null; selectedRef = null; selectedBlock = null; renderRight();
+}
+
+function paramDetailHtml(obj) {
+  var h = '<div class="dc-head dc-param"><span class="dc-k">入参对象</span><span class="mono">' + esc(obj.name) + '</span></div>';
+  h += '<div class="d-note">' + esc(obj.note || '') + (obj.where ? '<br><span style="color:#94a3b8">位置：' + esc(obj.where) + '</span>' : '') + '</div>';
+  if (obj.path) {
+    h += '<div class="d-sec"><div class="d-sec-t">复制 · 回 IDE 检索</div>';
+    h += '<div class="copyrow"><span class="copytxt">' + esc(obj.path) + '</span><button class="cbtn" data-copy="' + esc(obj.path) + '">路径</button></div>';
+    var f = fqcn(obj.path);
+    if (f) h += '<div class="copyrow"><span class="copytxt">' + esc(f) + '</span><button class="cbtn" data-copy="' + esc(f) + '">FQCN</button></div>';
+    h += '</div>';
+  }
+  h += '<div class="d-sec"><div class="d-sec-t">字段变更</div><table class="mt"><tr><th style="width:26px"></th><th>字段</th><th style="width:66px">类型</th><th>说明</th></tr>';
+  (obj.fields || []).forEach(function (fd) {
+    var sign = fd.k === 'new' ? '+' : fd.k === 'deleted' ? '−' : '~';
+    h += '<tr><td class="k-' + fd.k + '">' + sign + '</td><td class="mono k-' + fd.k + '">' + esc(fd.n) + '</td><td class="mono" style="color:#64748b">' + esc(fd.t || '') + '</td><td style="color:#64748b">' + esc(fd.d || '') + '</td></tr>';
+  });
+  h += '</table></div>';
+  return h;
+}
+
+function renderCorridor() {
+  var e = DATA.entries.filter(function (x) { return x.id === currentId; })[0];
+  document.getElementById('panel-title').textContent = e.http + ' ' + e.path + ' · 代码走廊（执行叙事）';
+  var marks = ['①', '②', '③', '④', '⑤', '⑥', '⑦'];
+  var bc = [];
+  var out = '';
+  function blockStart(b) {
+    var first = b.lines[0];
+    return first ? first.ln : 0;
+  }
+  function nodeLines(n) {
+    var arr = [];
+    (n.callLines || []).forEach(function (c) { arr.push({ ln: c.ln, code: c.text, k: 'ctx', mark: '关键调用行' }); });
+    var blocks = (n.blocks || []).concat([].concat.apply([], (n.phases || []).map(function (p) { return p.blocks || []; })));
+    blocks.forEach(function (b) {
+      (b.snippet || []).forEach(function (s) { arr.push({ ln: s.ln, code: s.code, k: s.k, mark: b.name, b: b }); });
+    });
+    arr.sort(function (a, b2) { return a.ln - b2.ln; });
+    return arr;
+  }
+  function diffHtml(lines, path) {
+    var h = ''; var prev = null;
+    lines.forEach(function (l) {
+      if (prev !== null && l.ln - prev > 1) h += '<div class="cor-hunk">@@ ⋯ ' + (l.ln - prev - 1) + ' 行未变更 ⋯ @@</div>';
+      var kc = l.k === '+' ? 'k-add' : l.k === '-' ? 'k-del' : 'k-ctx';
+      var mk = l.k === '+' ? '+' : l.k === '-' ? '−' : ' ';
+      var loc = path ? path + ':' + l.ln : '';
+      h += '<div class="cor-line ' + kc + '"' + (loc ? ' data-copy="' + esc(loc) + '" title="' + esc(loc) + '"' : '') + '><span class="cor-ln">' + l.ln + '</span><span class="cor-mk">' + mk + '</span><span class="cor-code">' + esc(l.code) + '</span></div>';
+      prev = l.ln;
+    });
+    return h;
+  }
+  function walkNode(n, depth, fromCls) {
+    if (n.refOnly || n.kind === 'external') { (n.children || []).forEach(function (c) { walkNode(c, depth, fromCls); }); return; }
+    var ind = depth * 22;
+    var isChanged = (n.blocks || []).length > 0 || (n.phases || []).length > 0;
+    bc.push(n.cls);
+    if (!isChanged) {
+      var cl = (n.callLines || [])[0];
+      var loc0 = n.path && cl ? n.path + ':' + cl.ln : '';
+      out += '<div class="cor-pass" style="margin-left:' + ind + 'px">';
+      out += '<span class="cor-kind k-unchanged">未变更</span><span class="pass-cls mono">' + esc(n.cls) + (n.method ? '#' + esc(n.method) : '') + '</span>';
+      if (cl) out += '<span class="pass-line mono" title="' + esc(cl.text) + '">L' + cl.ln + ' ' + esc(cl.text.length > 64 ? cl.text.slice(0, 64) + '…' : cl.text) + '</span>';
+      if (loc0) out += '<button class="cbtn" data-copy="' + esc(loc0) + '">定位</button>';
+      out += '</div>';
+    } else {
+      out += '<div class="cor-file" style="margin-left:' + ind + 'px">';
+      out += '<div class="cor-head"><span class="cor-kind k-' + n.kind + '">' + (KIND_NAME[n.kind] || '') + '</span><span class="cor-cls mono">' + esc(n.cls) + '</span>';
+      if (fromCls) out += '<span class="cor-from">⤵ 由 ' + esc(fromCls) + ' 转入</span>';
+      if (n.path) out += '<button class="cbtn" data-copy="' + esc(n.path) + '" style="margin-left:auto">路径</button>';
+      out += '</div>';
+      var seen = {}; var bi = 0;
+      var blocks = (n.blocks || []).concat([].concat.apply([], (n.phases || []).map(function (p) { return (p.blocks || []).map(function (b) { b2 = Object.assign({}, b, { name: p.name + ' · ' + b.name }); return b; }); })));
+      blocks.forEach(function (b) {
+        bi++;
+        var start = String(b.range).split('-')[0].split('约').join('').split('L').join('');
+        var loc = n.path ? n.path + ':' + start : '';
+        var msrch = n.cls + '#' + String(b.in || '').split('（')[0].split(' ')[0].split('·')[0].trim();
+        out += '<div class="cor-block">';
+        out += '<div class="cor-bhead" title="' + esc(b.desc || '') + (b.via ? '；路径：' + b.via.map(function (v) { return v.m; }).join(' → ') : '') + '">';
+        out += '<span class="b-no">' + (marks[bi-1] || '') + '</span><span class="b-name2">' + esc(b.name) + '</span>' + (b.in ? '<span class="b-in mono">#' + esc(b.in) + '</span>' : '') + '<span class="b-range mono">' + esc(b.range) + '</span>';
+        if (loc) out += '<span class="b-btns"><button class="cbtn" data-copy="' + esc(loc) + '">定位</button><button class="cbtn" data-copy="' + esc(msrch) + '">方法</button></span>';
+        out += '<span class="b-fold">▾</span></div>';
+        out += '<div class="cor-bbody">' + diffHtml((b.snippet || []).map(function (s) { return { ln: s.ln, code: s.code, k: s.k }; }), n.path) + '</div>';
+        out += '</div>';
+      });
+      out += '</div>';
+    }
+    (n.children || []).forEach(function (c) { walkNode(c, depth + 1, n.cls); });
+    if (isChanged && fromCls) {
+      out += '<div class="cor-ret" style="margin-left:' + (ind + 22) + 'px">↩ 返回 ' + esc(fromCls) + ' 继续执行</div>';
+    }
+  }
+  (e.chain || []).forEach(function (n) { walkNode(n, 0, null); });
+  var bchtml = bc.map(function (c) { return '<span class="bc-item">' + esc(c) + '</span>'; }).join('<span class="bc-sep">›</span>');
+  chainEl.innerHTML = '<div class="cor-bc">' + bchtml + '</div><div class="corridor">' + out + '</div>';
+  document.getElementById('orphans').innerHTML = '';
+}
+
+function render() {
+  REF.length = 0; BLK.length = 0;
+  entriesEl.innerHTML = '';
+  allEntries().forEach(function (en) { entriesEl.appendChild(entryCard(en)); });
+  document.querySelector('.layout').classList.toggle('full', view === 'corridor' && currentId !== ORPHAN_ENTRY.id);
+  if (view === 'corridor' && currentId !== ORPHAN_ENTRY.id) { renderCorridor(); return; }
+  if (currentId === ORPHAN_ENTRY.id) { renderOrphanChain(); return; }
+  var e = DATA.entries.filter(function (x) { return x.id === currentId; })[0];
+  document.getElementById('panel-title').textContent = e.http + ' ' + e.path + ' · 调用链路（含逻辑块）';
+  var h = '';
+  h += paramSectionHtml(e.params || {});
+  h += '<div class="tree">' + renderList(e.chain, {}) + '</div>';
+  var x = e.exit || {};
+  var xFields = (x.newFields || []).map(function (f) { return '<span class="fchip">+' + esc(f) + '</span>'; }).join(' ');
+  h += '<div class="strip"><b>出口</b><span class="mono">' + esc(x.response) + '</span>' +
+       (x.responseChanged ? '<span style="color:#047857;font-weight:600">响应有变更</span>' : '<span style="color:#94a3b8">响应未变更</span>') +
+       xFields + (x.persistence ? '<span style="color:#64748b">落库：' + esc(x.persistence) + '</span>' : '') + '</div>';
+  chainEl.innerHTML = h;
+  document.getElementById('orphans').innerHTML = '';
+}
+
+function renderOrphanChain() {
+  document.getElementById('panel-title').textContent = '未挂链变更 · 特殊链路（无上游入口）';
+  var cov = DATA.coverage || {};
+  var h = '<div class="strip"><b>闭包校验</b><span>' + esc(cov.note || '') + '</span><span style="color:#94a3b8">' + esc(cov.strip || '') + '</span></div>';
+  h += '<div class="orphan-list">';
+  (DATA.orphans || []).forEach(function (o) {
+    h += '<div class="node ' + o.kind + '" data-orphan="' + esc(o.cls) + '">';
+    h += '<div class="n-head"><span class="n-kind">' + (KIND_NAME[o.kind] || '') + '</span><span class="n-cls mono">' + esc(o.cls) + '</span>';
+    if (o.stats) h += '<span class="n-stats"><b class="g">+' + o.stats[0] + '</b> <b class="r">−' + o.stats[1] + '</b></span>';
+    h += '<span class="n-badge">' + esc(o.reason) + '</span></div>';
+    if (o.note) h += '<div class="n-note">' + esc(o.note) + '</div>';
+    h += bodyHtml(o);
+    h += '</div>';
+  });
+  h += '</div>';
+  chainEl.innerHTML = h;
+  document.getElementById('orphans').innerHTML = '';
+}
+
+function refDetailHtml(c) {
+  var h = '<div class="dc-head dc-node k-' + c.kind + '"><span class="dc-k">引用</span><span class="mono">' + esc(c.fn) + '</span></div>';
+  h += '<div class="d-note">' + esc(c.d || '') + '</div>';
+  if (c.at) {
+    var loc1 = c.at.path + ':' + c.at.line;
+    h += '<div class="d-sec"><div class="d-sec-t">调用点</div>';
+    h += '<div class="copyrow"><span class="copytxt">' + esc(loc1) + '</span><button class="cbtn" data-copy="' + esc(loc1) + '">复制</button></div>';
+    h += '<div class="snip"><span class="sl">L' + c.at.line + '</span>' + esc(c.at.code) + '</div></div>';
+  }
+  if (c.def && c.def.line) {
+    h += '<div class="d-sec"><div class="d-sec-t">被调函数定义</div>';
+    if (c.def.path) {
+      var loc2 = c.def.path + ':' + c.def.line;
+      h += '<div class="copyrow"><span class="copytxt">' + esc(loc2) + '</span><button class="cbtn" data-copy="' + esc(loc2) + '">复制</button></div>';
+    }
+    h += '<div class="snip"><span class="sl">L' + c.def.line + '</span>' + esc(c.def.snippet || '') + '</div></div>';
+  }
+  return h;
+}
+
+function blockDetailHtml(bb) {
+  var n = bb.n, b = bb.b;
+  var h = '<div class="dc-head dc-node k-' + b.kind + '"><span class="dc-k">逻辑块</span><span>' + esc(b.name) + '</span>' + (b.in ? '<span class="mono" style="font-weight:400;font-size:11px;color:inherit;opacity:.85">#' + esc(b.in) + '</span>' : '') + '<span class="mono" style="font-weight:400;font-size:11px">' + esc(b.range) + '</span></div>';
+  if (b.desc) h += '<div class="d-note">' + esc(b.desc) + '</div>';
+  var start = String(b.range).split('-')[0].split('约').join('').split('L').join('');
+  var loc = n.path ? n.path + ':' + start : b.range;
+  if (b.via && b.via.length) {
+    h += '<div class="d-sec"><div class="d-sec-t">调用路径（向上至入口）</div><table class="mt"><tr><th>跳板方法</th><th style="width:50px">调用行</th><th style="width:52px">定位</th></tr>';
+    b.via.forEach(function (v) {
+      var loc = v.path ? v.path + ':' + v.ln : '';
+      h += '<tr' + (loc ? ' class="rowcopy" data-copy="' + esc(loc) + '" title="' + esc(loc) + '"' : '') + '><td class="mono">' + esc(v.m) + '</td><td class="mono">' + (v.ln ? 'L' + v.ln : '') + '</td><td>' + (loc ? '<button class="cbtn" data-copy="' + esc(loc) + '">复制</button>' : '') + '</td></tr>';
+    });
+    h += '</table></div>';
+  }
+  h += '<div class="d-sec"><div class="d-sec-t">定位</div><div class="copyrow"><span class="copytxt">' + esc(loc) + '</span><button class="cbtn" data-copy="' + esc(loc) + '">复制定位</button></div>';
+  if (b.in) {
+    var msearch = n.cls + '#' + String(b.in).split('（')[0].split(' ')[0].split('·')[0].trim();
+    h += '<div class="copyrow"><span class="copytxt">' + esc(msearch) + '</span><button class="cbtn" data-copy="' + esc(msearch) + '">方法检索</button></div>';
+  }
+  h += '</div>';
+  if (b.snippet && b.snippet.length) {
+    h += '<div class="d-sec"><div class="d-sec-t">关键代码</div><div class="snip">';
+    b.snippet.forEach(function (s) {
+      var cls2 = s.k === '+' ? 'sa' : s.k === '-' ? 'sd2' : 'sc';
+      var mark = s.k === '+' ? '+ ' : s.k === '-' ? '- ' : '  ';
+      h += '<div class="sline"><span class="sl">L' + s.ln + '</span><span class="' + cls2 + '">' + mark + esc(s.code) + '</span></div>';
+    });
+    h += '</div></div>';
+  }
+  if (b.calls && b.calls.length) {
+    h += '<div class="d-sec"><div class="d-sec-t">调用引用</div>';
+    b.calls.forEach(function (c) {
+      var rid = REF.push(c) - 1;
+      var loc2 = c.at ? c.at.path + ':' + c.at.line : '';
+      h += '<div class="d-blockrow" style="flex-wrap:wrap"><span class="bn mono">' + esc(c.fn) + '</span><span class="br2">' + esc(c.d || '') + '</span>' + (loc2 ? '<button class="cbtn" data-copy="' + esc(loc2) + '">调用点</button>' : '') + '<button class="cbtn refopen" data-rid="' + rid + '">详情</button></div>';
+    });
+    h += '</div>';
+  }
+  return h;
+}
+
+function renderRight() {
+  var e = currentId === ORPHAN_ENTRY.id ? ORPHAN_ENTRY : DATA.entries.filter(function (x) { return x.id === currentId; })[0];
+  var h = '<div class="dcard">' + entryBigCardHtml(e) + '</div>';
+  if (selectedParam) {
+    h += '<div class="dcard">' + paramDetailHtml(selectedParam) + '</div>';
+  } else if (selectedNode) {
+    h += '<div class="dcard">' + nodeDetailHtml(selectedNode) + '</div>';
+  } else if (selectedBlock) {
+    h += '<div class="dcard">' + blockDetailHtml(selectedBlock) + '</div>';
+  } else if (selectedRef) {
+    h += '<div class="dcard">' + refDetailHtml(selectedRef) + '</div>';
+  } else {
+    h += '<div class="dcard hint-card">点击链路中的 类卡片 / 逻辑块 / 引用芯片<br>此处显示详情与关键代码，可复制路径回 IDE</div>';
+  }
+  detailEl.innerHTML = h;
+  detailEl.classList.add('open');
+}
+
+function entryBigCardHtml(e) {
+  if (e.special) {
+    var cov = DATA.coverage || {};
+    var h = '<div class="dc-head dc-orph"><span class="dc-k">特殊链路</span><span>未挂链变更</span></div>';
+    h += '<div class="d-note">' + esc(cov.note || '') + '<br><span style="color:#94a3b8">' + esc(cov.strip || '') + '</span></div>';
+    h += '<div class="d-sec"><div class="d-sec-t">全量文件索引（' + ((DATA.coverage || {}).inventory || []).length + '）· 谁也没藏</div>';
+    var inv = (DATA.coverage || {}).inventory || [];
+    if (inv.length) {
+      h += '<table class="mt"><tr><th>文件</th><th style="width:34px">状态</th><th>评审入口</th></tr>';
+      inv.forEach(function (it) {
+        h += '<tr><td class="mono">' + esc(it.cls) + '</td><td class="k-' + (it.type === 'new' ? 'new' : 'modified') + '">' + (it.type === 'new' ? '新增' : '修改') + '</td><td style="color:#64748b">' + esc(it.loc) + '</td></tr>';
+      });
+      h += '</table>';
+    }
+    (DATA.orphans || []).forEach(function (o) {
+      h += '<div class="d-blockrow"><span class="bn mono">' + esc(o.cls) + '</span><span class="br2">' + esc(o.reason) + '</span></div>';
+    });
+    return h + '</div>';
+  }
+  var h = '<div class="dc-head dc-entry"><span class="dc-k">入口</span><span class="mono">' + esc(e.http) + ' ' + esc(e.path) + '</span></div>';
+  h += '<div class="d-note">' + esc(e.group) + ' · ' + esc(e.impactNote) + ' · 入口未变更（灰）</div>';
+  h += '<div class="d-sec"><div class="d-sec-t">完整 URL</div>';
+  (e.urls || []).forEach(function (u) {
+    h += '<div class="copyrow"><span class="copytxt">' + esc(u) + '</span><button class="cbtn" data-copy="' + esc(u) + '">复制</button></div>';
+  });
+  h += '</div>';
+  var p = e.params || {};
+  h += '<div class="d-sec"><div class="d-sec-t">入参</div><div class="d-note"><span class="mono">' + esc(p.dto) + '</span><br>' + esc(p.note || '') + '</div>';
+  (p.objects || []).forEach(function (o) {
+    h += '<div class="d-blockrow"><span class="bn mono">' + esc(o.name) + '</span><span class="br2">' + (o.fields || []).length + ' 字段变更</span></div>';
+  });
+  (p.newFields || []).forEach(function (f2) { h += '<div class="fchip" style="margin-top:4px;display:inline-block">+' + esc(f2) + '</div>'; });
+  h += '</div>';
+  var x = e.exit || {};
+  h += '<div class="d-sec"><div class="d-sec-t">出口</div><div class="d-note"><span class="mono">' + esc(x.response) + '</span> · ' + (x.responseChanged ? '响应有变更' : '响应未变更') + (x.persistence ? '<br>落库：' + esc(x.persistence) : '') + '</div></div>';
+  return h;
+}
+
+function nodeDetailHtml(n) {
+  var h = '<button class="d-close" id="dclose">×</button>';
+  h += '<div class="dc-head dc-node k-' + n.kind + '"><span class="dc-k">' + (KIND_NAME[n.kind] || '详情') + '</span><span class="mono">' + esc(n.cls) + (n.method ? '#' + esc(n.method) : '') + '</span></div>';
+  if (n.note) h += '<div class="d-note">' + esc(n.note) + '</div>';
+  h += '<div class="d-sec"><div class="d-sec-t">复制 · 回 IDE 检索</div>';
+  if (n.path) {
+    h += '<div class="copyrow"><span class="copytxt">' + esc(n.path) + '</span><button class="cbtn" data-copy="' + esc(n.path) + '">路径</button></div>';
+    var f = fqcn(n.path);
+    if (f) h += '<div class="copyrow"><span class="copytxt">' + esc(f) + '</span><button class="cbtn" data-copy="' + esc(f) + '">FQCN</button></div>';
+    var q = n.cls + (n.method ? '#' + n.method : '');
+    h += '<div class="copyrow"><span class="copytxt">' + esc(q) + '</span><button class="cbtn" data-copy="' + esc(q) + '">检索串</button></div>';
+  }
+  h += '</div>';
+  if (n.callLines && n.callLines.length) {
+    h += '<div class="d-sec"><div class="d-sec-t">关键调用行</div><table class="mt"><tr><th style="width:46px">行号</th><th>代码</th><th>下一跳</th></tr>';
+    n.callLines.forEach(function (c) {
+      var cl = n.path ? n.path + ':' + c.ln : '';
+      h += '<tr' + (cl ? ' class="rowcopy" data-copy="' + esc(cl) + '" title="' + esc(cl) + '"' : '') + '><td class="mono">L' + c.ln + '</td><td class="mono">' + esc(c.text) + '</td><td style="color:#1d4ed8">' + esc(c.next || '') + '</td></tr>';
+    });
+    h += '</table></div>';
+  }
+  var blocks = [];
+  (n.phases || []).forEach(function (p) { p.blocks.forEach(function (b) { blocks.push({ t: p.name + ' · ' + b.name, r: b.range }); }); });
+  (n.blocks || []).forEach(function (b) { blocks.push({ t: b.name, r: b.range }); });
+  if (blocks.length) {
+    h += '<div class="d-sec"><div class="d-sec-t">逻辑块定位</div><table class="mt"><tr><th>逻辑块</th><th style="width:92px">行区间</th><th style="width:56px">定位</th></tr>';
+    blocks.forEach(function (b) {
+      var start = String(b.r).split('-')[0].split('约').join('').split('L').join('');
+      var loc = n.path ? n.path + ':' + start : b.r;
+      h += '<tr class="rowcopy" data-copy="' + esc(loc) + '" title="' + esc(loc) + '"><td>' + esc(b.t) + '</td><td class="mono">' + esc(b.r) + '</td><td><button class="cbtn" data-copy="' + esc(loc) + '" title="' + esc(loc) + '">复制</button></td></tr>';
+    });
+    h += '</table></div>';
+  }
+  return h;
+}
+
+function findNodeByCls(cls) {
+  var found = null;
+  function walk(nodes) {
+    nodes.forEach(function (n) {
+      if (!found && n.cls === cls) found = n;
+      if (!found && n.children) walk(n.children);
+    });
+  }
+  DATA.entries.forEach(function (e) { if (!found) walk(e.chain); });
+  if (!found) (DATA.orphans || []).forEach(function (o) { if (o.cls === cls) found = o; });
+  return found;
+}
+
+document.body.addEventListener('click', function (ev) {
+  var t = ev.target;
+  if (t.classList && t.classList.contains('cbtn') && t.getAttribute('data-copy')) {
+    copyText(t.getAttribute('data-copy') || '', t);
+    return;
+  }
+  if (t.classList && t.classList.contains('refopen')) {
+    selectedRef = REF[Number(t.getAttribute('data-rid'))]; selectedNode = null; selectedParam = null; selectedBlock = null; renderRight();
+    return;
+  }
+  if (t.id === 'dclose') { detailEl.classList.remove('open'); return; }
+  if (t.classList && t.classList.contains('call')) {
+    ev.stopPropagation();
+    var rid = t.getAttribute('data-ref');
+    if (rid !== null && REF[Number(rid)]) {
+      selectedRef = REF[Number(rid)]; selectedNode = null; selectedParam = null; selectedBlock = null; renderRight();
+    }
+    var fn = t.getAttribute('data-fn') || '';
+    var short = fn.split('.').pop().split('(')[0].split(' ')[0].split('（')[0];
+    if (short) {
+      Array.prototype.forEach.call(chainEl.querySelectorAll('.node'), function (nd) {
+        if (nd.textContent.indexOf(short) >= 0) {
+          nd.classList.remove('flash');
+          void nd.offsetWidth;
+          nd.classList.add('flash');
+          nd.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      });
+    }
+    return;
+  }
+  var el = t;
+  while (el && el !== document.body) {
+    if (el.tagName === 'TR' && el.getAttribute('data-copy')) {
+      copyText(el.getAttribute('data-copy'), el.querySelector('.cbtn'));
+      return;
+    }
+    if (el.classList && el.classList.contains('param-card')) {
+      showParamDetail(el.getAttribute('data-pobj'));
+      return;
+    }
+    if (el.classList && el.classList.contains('block') && el.getAttribute('data-bid') !== null) {
+      var bb = BLK[Number(el.getAttribute('data-bid'))];
+      if (bb) { selectedBlock = bb; selectedNode = null; selectedParam = null; selectedRef = null; renderRight(); }
+      return;
+    }
+    if (el.classList && el.classList.contains('collapsed-pill') && el.getAttribute('data-uid')) {
+      var np = findNodeByUid(el.getAttribute('data-uid'));
+      if (np) { selectedNode = np; selectedParam = null; selectedRef = null; selectedBlock = null; renderRight(); }
+      return;
+    }
+    if (el.classList && el.classList.contains('node') && el.getAttribute('data-orphan')) {
+      var o = findNodeByCls(el.getAttribute('data-orphan'));
+      if (o) { selectedNode = o; selectedParam = null; selectedRef = null; selectedBlock = null; renderRight(); }
+      return;
+    }
+    if (el.classList && el.classList.contains('node') && el.getAttribute('data-uid')) {
+      var n2 = findNodeByUid(el.getAttribute('data-uid'));
+      if (n2) { selectedNode = n2; selectedParam = null; selectedRef = null; selectedBlock = null; renderRight(); }
+      return;
+    }
+    if (el.classList && el.classList.contains('ref-chip')) {
+      var n3 = findNodeByCls(el.getAttribute('data-cls'));
+      if (n3) { selectedNode = n3; selectedParam = null; selectedRef = null; selectedBlock = null; renderRight(); }
+      return;
+    }
+    el = el.parentElement;
+  }
+});
+
+var UID = 0;
+function assignUid(nodes) {
+  nodes.forEach(function (n) { n.uid = 'u' + (UID++); assignUid(n.children || []); });
+}
+DATA.entries.forEach(function (e) { assignUid(e.chain); });
+function findNodeByUid(uid) {
+  var found = null;
+  function walk(nodes) {
+    nodes.forEach(function (n) {
+      if (!found && n.uid === uid) found = n;
+      if (!found && n.children) walk(n.children);
+    });
+  }
+  DATA.entries.forEach(function (e) { if (!found) walk(e.chain); });
+  return found;
+}
+
+document.getElementById('btn-view-chain').addEventListener('click', function () {
+  view = 'chain'; this.classList.add('on'); document.getElementById('btn-view-corridor').classList.remove('on');
+  document.getElementById('mode-toggle').style.display = ''; render();
+});
+document.getElementById('btn-view-corridor').addEventListener('click', function () {
+  view = 'corridor'; this.classList.add('on'); document.getElementById('btn-view-chain').classList.remove('on');
+  document.getElementById('mode-toggle').style.display = 'none'; render();
+});
+chainEl.addEventListener('click', function (ev2) {
+  var t2 = ev2.target;
+  while (t2 && t2 !== chainEl) {
+    if (t2.classList && t2.classList.contains('cor-bhead')) {
+      var blk = t2.parentElement;
+      if (blk && blk.classList.contains('cor-block')) blk.classList.toggle('folded');
+      return;
+    }
+    if (t2.classList && t2.classList.contains('cor-line') && t2.getAttribute('data-copy')) {
+      copyText(t2.getAttribute('data-copy'), null);
+      t2.style.background = '#ecfdf5';
+      setTimeout(function () { t2.style.background = ''; }, 600);
+      return;
+    }
+    t2 = t2.parentElement;
+  }
+});
+document.getElementById('btn-lesion').addEventListener('click', function () {
+  mode = 'lesion'; this.classList.add('on'); document.getElementById('btn-spine').classList.remove('on'); render();
+});
+document.getElementById('btn-spine').addEventListener('click', function () {
+  mode = 'spine'; this.classList.add('on'); document.getElementById('btn-lesion').classList.remove('on'); render();
+});
+render();
+renderRight();
+</script>
+</body>
+</html>

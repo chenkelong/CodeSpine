@@ -1,0 +1,11 @@
+{
+  "name": "codespine",
+  "version": "0.1.0",
+  "description": "码脊 (CodeSpine) —— 代码断层扫描：确定性提取 diff 骨架，AI 完成语义分析，渲染可循行号的评审视图",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "codespine": "bin/codespine.js" },
+  "engines": { "node": ">=18" },
+  "files": ["bin", "src", "templates", "prompts", "platforms", "README.md"],
+  "keywords": ["code-review", "diff", "ai", "pr", "spine"]
+}
