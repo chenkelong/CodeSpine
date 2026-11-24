@@ -266,7 +266,7 @@
 </div></div>
 
 <div class="view on" id="v-overview"></div>
-<div class="view" id="v-chain"></div>
+<div class="view" id="v-chain"><div class="layout" id="chain-layout"><div class="left" id="chain-left"></div><aside class="detail" id="chain-detail"></aside></div></div>
 <div class="view" id="v-diff"></div>
 <div class="view" id="v-independent"></div>
 <div class="view" id="v-verify"></div>
@@ -545,6 +545,97 @@ function renderVerify() {
   return h;
 }
 
+// ═══════════════════ 右栏双卡 ═══════════════════
+function entryBigCardHtml(e) {
+  var h = '<div class="dc-head dc-entry"><span class="dc-k">入口</span><span class="mono">' + esc(e.http) + ' ' + esc(e.path) + '</span></div>';
+  h += '<div class="d-note">' + esc(e.group || '') + ' · ' + esc(e.impactNote || '') + '</div>';
+  (e.urls || []).forEach(function(u) { h += '<div class="copyrow"><span class="copytxt">' + esc(u) + '</span><button class="cbtn" data-copy="' + esc(u) + '">复制</button></div>'; });
+  var p = e.params || {};
+  if (p.dto) { h += '<div class="d-sec"><div class="d-sec-t">入参</div><div class="d-note"><span class="mono">' + esc(p.dto) + '</span> · ' + esc(p.note || '') + '</div>'; (p.newFields||[]).forEach(function(f){h+='<span class="fchip">+'+esc(f)+'</span>';}); h += '</div>'; }
+  var x = e.exit || {};
+  h += '<div class="d-sec"><div class="d-sec-t">出口</div><div class="d-note"><span class="mono">' + esc(x.response || '') + '</span> · ' + (x.responseChanged ? '响应有变更' : '响应无变更') + (x.persistence ? '<br>落库：' + esc(x.persistence) : '') + '</div></div>';
+  return h;
+}
+function blockDetailHtml(bb) {
+  var n = bb.n, b = bb.b;
+  var h = '<div class="dc-head dc-node k-' + b.kind + '"><span class="dc-k">逻辑块</span><span>' + esc(b.name) + '</span>' + (b.in ? '<span class="mono" style="font-size:10px">#' + esc(b.in) + '</span>' : '') + '</div>';
+  if (b.desc) h += '<div class="d-note">' + esc(b.desc) + '</div>';
+  var st = String(b.range).split('-')[0].replace(/[^\d]/g, '');
+  var loc = n.path ? n.path + ':' + st : '';
+  h += '<div class="d-sec"><div class="d-sec-t">定位</div><div class="copyrow"><span class="copytxt">' + esc(loc) + '</span><button class="cbtn" data-copy="' + esc(loc) + '">复制定位</button></div></div>';
+  if (b.via) {
+    h += '<div class="d-sec"><div class="d-sec-t">调用路径</div><table class="mt"><tr><th>跳板</th><th style="width:44px">行</th></tr>';
+    b.via.forEach(function(v) { h += '<tr><td class="mono">' + esc(v.m) + '</td><td class="mono">L' + v.ln + '</td></tr>'; });
+    h += '</table></div>';
+  }
+  if (b.snippet) {
+    h += '<div class="d-sec"><div class="d-sec-t">关键代码</div><div class="snip">';
+    b.snippet.forEach(function(s) {
+      var c2 = s.k === '+' ? 'sa' : s.k === '-' ? 'sd2' : 'sc';
+      var mk = s.k === '+' ? '+ ' : s.k === '-' ? '- ' : '  ';
+      h += '<div class="sline"><span class="sl">L' + s.ln + '</span><span class="' + c2 + '">' + mk + esc(s.code) + '</span></div>';
+    });
+    h += '</div></div>';
+  }
+  if (b.calls) {
+    h += '<div class="d-sec"><div class="d-sec-t">调用引用</div>';
+    b.calls.forEach(function(c) {
+      var l2 = c.at ? c.at.path + ':' + c.at.line : '';
+      h += '<div class="d-blockrow"><span class="bn mono">' + esc(c.fn) + '</span><span class="br2">' + esc(c.d || '') + '</span>' + (l2 ? '<button class="cbtn" data-copy="' + esc(l2) + '">调用点</button>' : '') + '</div>';
+    });
+    h += '</div>';
+  }
+  return h;
+}
+function nodeDetailHtml(n) {
+  var h = '<div class="dc-head dc-node k-' + n.kind + '"><span class="dc-k">' + (KIND_NAME[n.kind]||n.kind) + '</span><span class="mono">' + esc(n.cls) + (n.method ? '#' + esc(n.method) : '') + '</span></div>';
+  if (n.note) h += '<div class="d-note">' + esc(n.note) + '</div>';
+  if (n.paramChanged) h += '<div class="d-note" style="color:#9a6700">⚠ 参数变更：' + esc(n.pcNote || '') + '</div>';
+  if (n.path) {
+    h += '<div class="d-sec"><div class="d-sec-t">复制 · 回 IDE</div>';
+    h += '<div class="copyrow"><span class="copytxt">' + esc(n.path) + '</span><button class="cbtn" data-copy="' + esc(n.path) + '">路径</button></div>';
+    var f = fqcn(n.path); if (f) h += '<div class="copyrow"><span class="copytxt">' + esc(f) + '</span><button class="cbtn" data-copy="' + esc(f) + '">FQCN</button></div>';
+    var q = n.cls + (n.method ? '#' + n.method : '');
+    h += '<div class="copyrow"><span class="copytxt">' + esc(q) + '</span><button class="cbtn" data-copy="' + esc(q) + '">检索串</button></div>';
+    h += '</div>';
+  }
+  if (n.callLines) {
+    h += '<div class="d-sec"><div class="d-sec-t">关键调用行</div><table class="mt"><tr><th style="width:44px">行</th><th>代码</th><th>下一跳</th></tr>';
+    n.callLines.forEach(function(c) { h += '<tr><td class="mono">L' + c.ln + '</td><td class="mono">' + esc(c.text) + '</td><td style="color:#0550ae">' + esc(c.next || '') + '</td></tr>'; });
+    h += '</table></div>';
+  }
+  var blocks = [];
+  (n.blocks || []).forEach(function(b) { blocks.push(b); });
+  (n.phases || []).forEach(function(p) { (p.blocks || []).forEach(function(b) { blocks.push(b); }); });
+  if (blocks.length) {
+    h += '<div class="d-sec"><div class="d-sec-t">逻辑块定位</div><table class="mt"><tr><th>块</th><th style="width:80px">行区间</th><th style="width:50px">定位</th></tr>';
+    blocks.forEach(function(b) {
+      var st = String(b.range).split('-')[0].replace(/[^\d]/g, '');
+      var l2 = n.path ? n.path + ':' + st : '';
+      h += '<tr class="rowcopy"' + (l2 ? ' data-copy="' + esc(l2) + '"' : '') + '><td>' + esc(b.name) + '</td><td class="mono">' + esc(b.range) + '</td><td>' + (l2 ? '<button class="cbtn" data-copy="' + esc(l2) + '">复制</button>' : '') + '</td></tr>';
+    });
+    h += '</table></div>';
+  }
+  return h;
+}
+function renderRightPanel() {
+  var el = document.getElementById('chain-detail');
+  if (!el) return;
+  var e = DATA.entries[currentEntry];
+  if (!e) { el.innerHTML = ''; return; }
+  var h = '<div class="dcard">' + entryBigCardHtml(e) + '</div>';
+  if (selectedBlock) h += '<div class="dcard">' + blockDetailHtml(selectedBlock) + '</div>';
+  else if (selectedNode) h += '<div class="dcard">' + nodeDetailHtml(selectedNode) + '</div>';
+  else h += '<div class="dcard hint-card">点击链路中的类卡片 / 逻辑块<br>此处显示详情与关键代码，可复制路径回 IDE</div>';
+  el.innerHTML = h;
+  bindDetailEvents();
+}
+function bindDetailEvents() {
+  document.querySelectorAll('#chain-detail .cbtn[data-copy]').forEach(function(el) {
+    el.onclick = function(ev) { ev.stopPropagation(); copyText(el.getAttribute('data-copy'), el); };
+  });
+}
+
 // ═══════════════════ 主渲染 ═══════════════════
 function render() {
   document.querySelectorAll('.nav button').forEach(function(b) { b.classList.toggle('on', b.getAttribute('data-view') === currentView); });
@@ -552,7 +643,7 @@ function render() {
   var el = document.getElementById('v-' + currentView);
   if (!el) return;
   if (currentView === 'overview') el.innerHTML = renderOverview();
-  else if (currentView === 'chain') el.innerHTML = renderChain();
+  else if (currentView === 'chain') { document.getElementById('chain-left').innerHTML = renderChain(); renderRightPanel(); }
   else if (currentView === 'diff') el.innerHTML = renderDiff();
   else if (currentView === 'independent') el.innerHTML = renderIndependent();
   else if (currentView === 'verify') el.innerHTML = renderVerify();
@@ -574,7 +665,7 @@ function bindEvents() {
   });
   // 入口卡片
   document.querySelectorAll('.ch-entry').forEach(function(el) {
-    el.onclick = function() { currentEntry = +el.getAttribute('data-ei'); currentView = 'chain'; render(); };
+    el.onclick = function() { currentEntry = +el.getAttribute('data-ei'); currentView = 'chain'; selectedNode = null; selectedBlock = null; render(); };
   });
   // 链路切换
   var bl = document.getElementById('btn-lesion'); var bs = document.getElementById('btn-spine');
@@ -591,6 +682,35 @@ function bindEvents() {
   // 块折叠
   document.querySelectorAll('.block').forEach(function(el) {
     el.onclick = function(ev) { if (!ev.target.classList.contains('cbtn') && !ev.target.classList.contains('call')) { console.log('block click', el.getAttribute('data-bid')); } };
+  });
+  // 链路视图节点/块点击
+  document.querySelectorAll('#chain-left .node[data-uid]').forEach(function(el) {
+    el.onclick = function(ev) {
+      if (ev.target.classList.contains('cbtn') || ev.target.classList.contains('call')) return;
+      var uid = el.getAttribute('data-uid');
+      DATA.entries[currentEntry].chain && (function walk(nodes) {
+        nodes.forEach(function(n) {
+          if (n.uid === uid) selectedNode = n;
+          if (n.children) walk(n.children);
+        });
+      })(DATA.entries[currentEntry].chain);
+      selectedBlock = null; renderRightPanel();
+    };
+  });
+  document.querySelectorAll('#chain-left .block[data-bid]').forEach(function(el) {
+    el.onclick = function(ev) {
+      if (ev.target.classList.contains('cbtn') || ev.target.classList.contains('call')) return;
+      var bid = +el.getAttribute('data-bid');
+      if (BLK[bid]) { selectedBlock = BLK[bid]; selectedNode = null; renderRightPanel(); }
+    };
+  });
+  document.querySelectorAll('#chain-left .ref-chip').forEach(function(el) {
+    el.onclick = function(ev) {
+      ev.stopPropagation();
+      var cls = el.getAttribute('data-cls');
+      selectedNode = { cls: cls, kind: 'changed', note: '引用芯片', path: '' };
+      selectedBlock = null; renderRightPanel();
+    };
   });
   // diff 文件标签
   document.querySelectorAll('.diff-file-tag').forEach(function(el) {
