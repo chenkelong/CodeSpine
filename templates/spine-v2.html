@@ -191,8 +191,8 @@
 
   /* ── 验证情况视图 ── */
   .ver-empty { text-align:center; padding:40px 0; color:#8c959f; font-size:13px; }
-  .ver-item { display:flex; gap:10px; padding:8px 0; border-bottom:1px solid #f0f2f4; }
-  .ver-item:last-child { border-bottom:0; }
+  .ver-row { display:flex; gap:10px; padding:8px 0; border-bottom:1px solid #f0f2f4; }
+  .ver-row:last-child { border-bottom:0; }
   .ver-status { flex-shrink:0; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; }
   .ver-status.ok { background:#dafbe1; color:#116329; }
   .ver-status.pending { background:#fff8c5; color:#4d2d00; }
@@ -245,6 +245,29 @@
   .d-blockrow { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
   .d-blockrow .bn { font-size:11.5px; font-weight:600; }
   .d-blockrow .br2 { font-size:10px; color:#8c959f; font-family:ui-monospace,Menlo,monospace; }
+  /* diff 左右分栏 */
+  .diff-layout { display:flex; gap:12px; align-items:stretch; min-height:400px; }
+  .diff-tree { width:260px; flex-shrink:0; background:#fff; border:1px solid #d0d7de; border-radius:10px; overflow:hidden; }
+  .diff-tree-h { padding:8px 12px; background:#f6f8fa; border-bottom:1px solid #d0d7de; font-size:12px; font-weight:700; color:#333; }
+  .diff-tree-item { display:flex; align-items:center; gap:6px; padding:7px 10px; cursor:pointer; border-bottom:1px solid #f0f2f4; transition:background .12s; }
+  .diff-tree-item:hover { background:#f6f8fa; }
+  .diff-tree-item.active { background:#ddf4ff; border-left:3px solid #0969da; }
+  .dts { flex-shrink:0; width:18px; height:18px; border-radius:3px; font-size:10px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .dts.new { background:#dafbe1; color:#116329; }
+  .dts.changed { background:#ddf4ff; color:#0550ae; }
+  .dts.unchanged { background:#eef1f4; color:#57606a; }
+  .dtn { flex:1; font-size:11px; font-weight:600; color:#1a1a1a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dtc { flex-shrink:0; font-size:10px; font-family:ui-monospace,Menlo,monospace; }
+  .diff-main { flex:1; min-width:0; overflow-x:auto; }
+  /* 验证情况圆角 */
+  .ver-row { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid #f0f2f4; }
+  .ver-row:last-child { border-bottom:0; }
+  .ver-ic { flex-shrink:0; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+  .ver-ok { background:#dafbe1; color:#1a7f37; }
+  .ver-pend { background:#fff8c5; color:#9a6700; }
+  .ver-body { flex:1; }
+  .ver-t { font-size:13px; font-weight:700; color:#1a1a1a; }
+  .ver-d { font-size:11px; color:#57606a; margin-top:2px; line-height:1.5; }
   .footer { text-align:center; font-size:10px; color:#8c959f; padding:8px 0 20px; }
 </style>
 </head>
@@ -469,37 +492,42 @@ function collectCorridor(entry) {
 function renderDiff() {
   var e = DATA.entries[currentEntry];
   var files = collectCorridor(e);
-  var h = '';
-  // 文件标签行
-  h += '<div class="diff-file-list">';
+  var h = '<div class="diff-layout">';
+  h += '<div class="diff-tree">';
+  h += '<div class="diff-tree-h">文件</div>';
   files.forEach(function(f, i) {
-    h += '<div class="diff-file-tag' + (i===0?' active':'') + '" data-fi="' + i + '">';
-    h += '<span class="st ' + f.kind + '">' + (KIND_NAME[f.kind]||f.kind) + '</span>';
-    h += '<span class="mono">' + esc(f.cls) + '</span>';
-    h += '<span class="cnt">L' + (f.lines[0]||{}).ln + '…L' + (f.lines[f.lines.length-1]||{}).ln + '</span>';
+    var adds = f.lines.filter(function(l){return l.k==='sa'||l.k==='+';}).length;
+    var dels = f.lines.filter(function(l){return l.k==='sd2'||l.k==='-';}).length;
+    var short = f.cls.split(/(?=[A-Z])/).slice(-2).join('');
+    h += '<div class="diff-tree-item' + (i===0?' active':'') + '" data-fi="' + i + '">';
+    h += '<span class="dts ' + (f.kind==='new'?'new':f.kind==='changed'?'changed':'unchanged') + '">' + (f.kind==='new'?'A':f.kind==='changed'?'M':'U') + '</span>';
+    h += '<span class="dtn mono">' + esc(short) + '</span>';
+    h += '<span class="dtc"><b style="color:#1a7f37">+' + adds + '</b> <b style="color:#cf222e">−' + dels + '</b></span>';
     h += '</div>';
   });
   h += '</div>';
-  // 代码走廊
-  h += '<div class="corridor">';
-  files.forEach(function(f, fi) {
-    if (fi > 0) return; // 默认只显示第一个文件，点击标签切换
-    h += '<div class="cor-file">';
-    h += '<div class="cor-head"><span class="cor-kind k-' + f.kind + '">' + (KIND_NAME[f.kind]||'') + '</span><span class="cor-cls mono">' + esc(f.cls) + '</span>';
-    if (f.path) h += '<button class="cbtn" data-copy="' + esc(f.path) + '" style="margin-left:auto">路径</button>';
-    h += '</div><div class="cor-body">';
-    var prev = null;
-    f.lines.forEach(function(l) {
-      if (prev !== null && l.ln - prev > 1) h += '<div class="cor-hunk">@@ ⋯ 已省略 ' + (l.ln-prev-1) + ' 行 ⋯ @@</div>';
-      var kc = l.k === 'sa' || l.k === '+' ? 'k-add' : l.k === 'sd2' || l.k === '-' ? 'k-del' : 'k-ctx';
-      var mk = (l.k === 'sa' || l.k === '+') ? '+' : (l.k === 'sd2' || l.k === '-') ? '−' : ' ';
-      var loc = f.path ? f.path + ':' + l.ln : '';
-      h += '<div class="cor-line ' + kc + '"' + (loc ? ' data-copy="'+esc(loc)+'" title="'+esc(loc)+'"' : '') + '><span class="cor-ln">' + l.ln + '</span><span class="cor-mk">' + mk + '</span><span class="cor-code">' + esc(l.code) + '</span></div>';
-      prev = l.ln;
-    });
-    h += '</div></div>';
-  });
+  h += '<div class="diff-main" id="diff-main">';
+  h += renderDiffFile(files[0]);
   h += '</div>';
+  h += '</div>';
+  return h;
+}
+function renderDiffFile(f) {
+  if (!f) return '';
+  var h = '<div class="cor-file">';
+  h += '<div class="cor-head"><span class="cor-kind k-' + f.kind + '">' + (KIND_NAME[f.kind]||f.kind) + '</span><span class="cor-cls mono">' + esc(f.cls) + '</span>';
+  if (f.path) h += '<button class="cbtn" data-copy="' + esc(f.path) + '" style="margin-left:auto">路径</button>';
+  h += '</div><div class="cor-body">';
+  var prev = null;
+  f.lines.forEach(function(l) {
+    if (prev !== null && l.ln - prev > 1) h += '<div class="cor-hunk">@@ ⋯ 已省略 ' + (l.ln - prev - 1) + ' 行 ⋯ @@</div>';
+    var kc = l.k === 'sa' || l.k === '+' ? 'k-add' : l.k === 'sd2' || l.k === '-' ? 'k-del' : 'k-ctx';
+    var mk = (l.k === 'sa' || l.k === '+') ? '+' : (l.k === 'sd2' || l.k === '-') ? '−' : ' ';
+    var loc = f.path ? f.path + ':' + l.ln : '';
+    h += '<div class="cor-line ' + kc + '"' + (loc ? ' data-copy="'+esc(loc)+'" title="'+esc(loc)+'"' : '') + '><span class="cor-ln">' + l.ln + '</span><span class="cor-mk">' + mk + '</span><span class="cor-code">' + esc(l.code) + '</span></div>';
+    prev = l.ln;
+  });
+  h += '</div></div>';
   return h;
 }
 
@@ -534,9 +562,9 @@ function renderIndependent() {
 // ═══════════════════ 验证情况视图 ═══════════════════
 function renderVerify() {
   var h = '<div class="ov-card"><div class="ov-card-h">验证项目</div><div class="ov-card-b">';
-  h += '<div class="ver-item"><div class="ver-status ok">✓</div><div><b>行号回读验收</b><br><span style="color:#57606a;font-size:11px">所有代码引用的行号已与仓库源码交叉核对</span></div>' + evBadge('veri') + '</div>';
-  h += '<div class="ver-item"><div class="ver-status pending">?</div><div><b>调用链路验证</b><br><span style="color:#57606a;font-size:11px">入口→出口链路中的每跳调用关系需人工确认</span></div>' + evBadge('unconf') + '</div>';
-  h += '<div class="ver-item"><div class="ver-status pending">?</div><div><b>业务影响评估</b><br><span style="color:#57606a;font-size:11px">对下游消费者的影响需结合业务场景判断</span></div>' + evBadge('unconf') + '</div>';
+  h += '<div class="ver-row"><div class="ver-ic ver-ok"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg></div><div><b>行号回读验收</b><br><span style="color:#57606a;font-size:11px">所有代码引用的行号已与仓库源码交叉核对</span></div>' + evBadge('veri') + '</div>';
+  h += '<div class="ver-row"><div class="ver-ic ver-pend"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM7.25 5.75a.75.75 0 0 1 1.5 0v3a.75.75 0 0 1-1.5 0v-3ZM8 11.5a.875.875 0 1 1 0-1.75.875.875 0 0 1 0 1.75Z"/></svg></div><div><b>调用链路验证</b><br><span style="color:#57606a;font-size:11px">入口→出口链路中的每跳调用关系需人工确认</span></div>' + evBadge('unconf') + '</div>';
+  h += '<div class="ver-row"><div class="ver-ic ver-pend"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM7.25 5.75a.75.75 0 0 1 1.5 0v3a.75.75 0 0 1-1.5 0v-3ZM8 11.5a.875.875 0 1 1 0-1.75.875.875 0 0 1 0 1.75Z"/></svg></div><div><b>业务影响评估</b><br><span style="color:#57606a;font-size:11px">对下游消费者的影响需结合业务场景判断</span></div>' + evBadge('unconf') + '</div>';
   h += '</div></div>';
   h += '<div class="ov-card" style="margin-top:14px"><div class="ov-card-h">尚未覆盖的范围</div><div class="ov-card-b">';
   h += '<div style="font-size:12px;color:#57606a;line-height:1.8">';
@@ -715,30 +743,13 @@ function bindEvents() {
     };
   });
   // diff 文件标签
-  document.querySelectorAll('.diff-file-tag').forEach(function(el) {
+  document.querySelectorAll('.diff-tree-item').forEach(function(el) {
     el.onclick = function() {
-      document.querySelectorAll('.diff-file-tag').forEach(function(t){t.classList.remove('active');});
+      document.querySelectorAll('.diff-tree-item').forEach(function(t){t.classList.remove('active');});
       el.classList.add('active');
       var fi = +el.getAttribute('data-fi');
-      // 重新渲染只显示选中文件
       var files = collectCorridor(DATA.entries[currentEntry]);
-      var f = files[fi];
-      if (!f) return;
-      var h = '<div class="corridor"><div class="cor-file">';
-      h += '<div class="cor-head"><span class="cor-kind k-'+f.kind+'">'+(KIND_NAME[f.kind]||'')+'</span><span class="cor-cls mono">'+esc(f.cls)+'</span>';
-      if (f.path) h += '<button class="cbtn" data-copy="'+esc(f.path)+'" style="margin-left:auto">路径</button>';
-      h += '</div><div class="cor-body">';
-      var prev = null;
-      f.lines.forEach(function(l) {
-        if (prev !== null && l.ln-prev > 1) h += '<div class="cor-hunk">@@ ⋯ 已省略 '+(l.ln-prev-1)+' 行 ⋯ @@</div>';
-        var kc = l.k==='sa'||l.k==='+'?'k-add':l.k==='sd2'||l.k==='-'?'k-del':'k-ctx';
-        var mk = (l.k==='sa'||l.k==='+')?'+':(l.k==='sd2'||l.k==='-')?'−':' ';
-        var loc = f.path?f.path+':'+l.ln:'';
-        h += '<div class="cor-line '+kc+'"' +(loc?' data-copy="'+esc(loc)+'" title="'+esc(loc)+'"':'')+'><span class="cor-ln">'+l.ln+'</span><span class="cor-mk">'+mk+'</span><span class="cor-code">'+esc(l.code)+'</span></div>';
-        prev = l.ln;
-      });
-      h += '</div></div></div>';
-      document.querySelector('#v-diff .corridor').innerHTML = h;
+      document.getElementById('diff-main').innerHTML = renderDiffFile(files[fi]);
       bindEvents();
     };
   });
