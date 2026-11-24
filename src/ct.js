@@ -1,7 +1,7 @@
 // codespine ct —— 语言无关的完整 diff 提取（零语义：不做分层/不做调用分析，那是 AI 的事）
 import { execFileSync } from "node:child_process";
-import { writeFileSync, existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { writeFileSync, existsSync, readFileSync, mkdirSync, appendFileSync } from "node:fs";
+import { resolve, dirname, join } from "node:path";
 
 const MAX_CONTENT_LINES = 4000; // 每文件内容快照上限，防大文件爆炸
 
@@ -149,6 +149,32 @@ export async function runCt(args) {
     summary: { files: files.length, additions, deletions, hunks: files.reduce((s, f) => s + f.hunks.length, 0) },
     files,
   };
+  // 目录初始化
+  mkdirSync(dirname(out), { recursive: true });
+
+  // .gitignore 处理：存在→询问追加；不存在→询问创建；非 TTY 跳过；-y 静默确认
+  const gi = join(cwd, ".gitignore");
+  const giHas = existsSync(gi) && readFileSync(gi, "utf-8").split("\n").some(l => l.trim() === ".codespine/" || l.trim() === ".codespine");
+  if (!giHas) {
+    let yes = args.y === true || args.yes === true;
+    if (!yes && process.stdin.isTTY) {
+      const rl = (await import("node:readline/promises")).createInterface({ input: process.stdin, output: process.stdout });
+      const q = existsSync(gi)
+        ? "检测到 .gitignore，是否将 .codespine/ 加入忽略？(y/n) "
+        : "项目没有 .gitignore，是否创建并忽略 .codespine/？(y/n) ";
+      const ans = (await rl.question(q)).trim().toLowerCase();
+      yes = ans === "y" || ans === "yes";
+      rl.close();
+    }
+    if (yes) {
+      if (existsSync(gi)) appendFileSync(gi, "\n.codespine/\n");
+      else writeFileSync(gi, ".codespine/\n");
+      console.log("  gitignore 已加入 .codespine/");
+    } else {
+      console.log("  提示   未忽略 .codespine/（可将 .codespine/ 手动加入 .gitignore，或用 -y 自动确认）");
+    }
+  }
+
   writeFileSync(out, JSON.stringify(doc, null, 1));
 
   console.log(`✔ 码脊 CT 扫描完成`);
