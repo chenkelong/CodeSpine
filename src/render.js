@@ -1,5 +1,5 @@
 // codespine render —— 数据进、HTML 出；样式全部来自内置模板，AI 碰不到
-import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
@@ -24,6 +24,11 @@ export function runRender(args) {
   const spinePath = args._[0] || (d ? `.codespine/${d}/spine.json` : "spine.json");
   const out = String(args.o || (d ? `.codespine/${d}/review.html` : spinePath.replace(/\.json$/, "") + ".html"));
   const data = JSON.parse(readFileSync(spinePath, "utf-8"));
+  // 自动加载同目录 spine-raw.json（供 diff 视图构建方法边界表）
+  const rawPath = spinePath.replace("spine.json", "spine-raw.json");
+  if (existsSync(rawPath)) {
+    data.__raw = JSON.parse(readFileSync(rawPath, "utf-8"));
+  }
   let tpl = readFileSync(TPL, "utf-8");
 
   const meta = data.meta || {};
