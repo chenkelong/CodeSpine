@@ -382,8 +382,17 @@ function renderOverview() {
   var h = '<div class="ov-grid">';
   // 左列
   h += '<div style="display:flex;flex-direction:column;gap:14px">';
-  // 变更说明
-  h += '<div class="ov-card"><div class="ov-card-h">变更说明</div><div class="ov-card-b"><div class="ov-sum">' + esc(m.summary || '暂无说明') + '</div></div></div>';
+  // 通俗版核心描述
+  var ps = m.plainSummary;
+  if (ps) {
+    h += '<div class="ov-card" style="border-left:4px solid #0969da"><div class="ov-card-h" style="background:#ddf4ff;color:#0550ae">本次变更·一句话</div><div class="ov-card-b" style="padding:14px 16px">';
+    h += '<div style="font-size:14px;color:#1a1a1a;line-height:1.9;margin-bottom:12px">' + esc(ps.what) + '</div>';
+    if (ps.why) h += '<div style="display:flex;gap:10px;margin-bottom:10px"><span style="flex-shrink:0;font-size:11px;font-weight:700;color:#0550ae;background:#ddf4ff;border-radius:4px;padding:2px 8px;height:fit-content">为什么改</span><span style="font-size:13px;color:#424a53;line-height:1.8">' + esc(ps.why) + '</span></div>';
+    if (ps.impact) h += '<div style="display:flex;gap:10px"><span style="flex-shrink:0;font-size:11px;font-weight:700;color:#9a6700;background:#fff8c5;border-radius:4px;padding:2px 8px;height:fit-content">改了什么</span><span style="font-size:13px;color:#424a53;line-height:1.8">' + esc(ps.impact) + '</span></div>';
+    h += '</div></div>';
+  }
+  // 变更说明（技术版）
+  h += '<div class="ov-card"><div class="ov-card-h">变更说明（技术版）</div><div class="ov-card-b"><div class="ov-sum">' + esc(m.summary || '暂无说明') + '</div></div></div>';
   // 核心变更点
   h += '<div class="ov-card"><div class="ov-card-h">核心变更点（建议阅读顺序）</div><div class="ov-card-b">';
   var ord = 1;
