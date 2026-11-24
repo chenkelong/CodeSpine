@@ -631,7 +631,7 @@ function renderDiffByFunction(f) {
       var d = lineDiffMap[ln];
       var kc = d ? (d.kind==='add'?'k-add':d.kind==='del'?'k-del':'') : '';
       var mk = d ? (d.kind==='add'?'+':d.kind==='del'?'−':' ') : ' ';
-      if (!d && lastDiff>0 && ln-lastDiff>8 && rendered>0) {
+      if (!d && lastDiff>0 && ln-lastDiff>8 && rendered>0 && ln < end-5) {
         var hasMore = false;
         for (var l2=ln; l2<=end; l2++) { if (diffLines[l2]) { hasMore=true; break; } }
         if (hasMore) {
@@ -640,7 +640,7 @@ function renderDiffByFunction(f) {
           ln = Math.max(ln, nd-2); lastDiff = ln; continue;
         }
       }
-      if (d) lastDiff = ln;
+      if (d || ln >= end-4) lastDiff = ln;
       h += '<div class="cor-line '+kc+'" data-copy="'+esc(f.path+':'+ln)+'" title="'+esc(f.path+':'+ln)+'"><span class="cor-ln">'+ln+'</span><span class="cor-mk">'+mk+'</span><span class="cor-code">'+esc(line)+'</span></div>';
       rendered++;
     }
