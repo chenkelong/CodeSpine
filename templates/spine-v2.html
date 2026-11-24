@@ -300,6 +300,30 @@
   .vq-body { flex:1; min-width:0; }
   .vq-t { font-size:13px; font-weight:700; color:#1a1a1a; margin-bottom:2px; }
   .vq-d { font-size:11.5px; color:#57606a; line-height:1.6; }
+  /* 风险分析 */
+  .risk-pill { font-size:10px; font-weight:700; border-radius:10px; padding:2px 8px; }
+  .risk-high { background:#ffd8da; color:#82071e; }
+  .risk-medium { background:#fff8c5; color:#4d2d00; }
+  .risk-low { background:#ddf4ff; color:#0550ae; }
+  .risk-item { border-bottom:1px solid #f0f2f4; padding:12px 14px; transition:background .15s; }
+  .risk-item:last-child { border-bottom:0; }
+  .risk-item.resp-confirmed { background:#f0fff4; }
+  .risk-item.resp-flagged { background:#fff5f5; }
+  .risk-item.resp-skipped { opacity:.5; }
+  .risk-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+  .risk-cat { font-size:10px; color:#57606a; background:#f0f2f4; border-radius:3px; padding:1px 6px; flex-shrink:0; }
+  .risk-title { font-size:13px; font-weight:700; color:#1a1a1a; flex:1; min-width:200px; }
+  .risk-actions { display:flex; gap:4px; flex-shrink:0; }
+  .rbtn { font-size:10.5px; font-weight:600; border:1px solid #d0d7de; background:#fff; border-radius:12px; padding:3px 10px; cursor:pointer; transition:all .12s; }
+  .rbtn-ok:hover { border-color:#1a7f37; color:#1a7f37; background:#dafbe1; }
+  .rbtn-warn:hover { border-color:#cf222e; color:#cf222e; background:#ffd8da; }
+  .rbtn-skip:hover { border-color:#57606a; color:#57606a; background:#f0f2f4; }
+  .risk-desc { font-size:12px; color:#424a53; line-height:1.7; margin-bottom:4px; }
+  .risk-evid { font-size:11px; color:#57606a; background:#f6f8fa; border-radius:5px; padding:5px 8px; margin:3px 0; }
+  .risk-evid b { color:#333; }
+  .risk-sugg { font-size:11px; color:#0550ae; background:#ddf4ff; border-radius:5px; padding:5px 8px; margin:3px 0; }
+  .risk-sugg b { color:#0550ae; }
+  .risk-resp { margin-top:4px; }
   .footer { text-align:center; font-size:10px; color:#8c959f; padding:8px 0 20px; }
 </style>
 </head>
@@ -724,42 +748,56 @@ function renderIndependent() {
 
 // ═══════════════════ 验证情况视图 ═══════════════════
 function renderVerify() {
-  var h = '<div style="max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:16px">';
+  var h = '<div style="max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:16px">';
+  var risks = DATA.riskAnalysis || { items: [] };
 
-  // 第一部分：本次分析的质量
-  h += '<div class="ov-card"><div class="ov-card-h">分析质量</div><div class="ov-card-b" style="padding:4px 14px">';
-  h += '<div class="vq-row">';
-  h += '<div class="vq-ic vq-ok"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg></div>';
-  h += '<div class="vq-body"><div class="vq-t">行号回读验收</div><div class="vq-d">所有代码引用的行号已通过 codespine audit 与仓库源码交叉核对</div></div>';
-  h += '<span class="ev ev-veri">已验证</span></div>';
-  h += '<div class="vq-row">';
-  h += '<div class="vq-ic vq-pend"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM7.25 5.75a.75.75 0 0 1 1.5 0v3a.75.75 0 0 1-1.5 0v-3ZM8 11.5a.875.875 0 1 1 0-1.75.875.875 0 0 1 0 1.75Z"/></svg></div>';
-  h += '<div class="vq-body"><div class="vq-t">调用链路核实</div><div class="vq-d">入口 → 变更类的调用路径中，中间层是否遗漏需人工沿代码走一遍</div></div>';
-  h += '<span class="ev ev-unconf">待确认</span></div>';
-  h += '</div></div>';
+  // ═══ 风险分析（AI 深度分析） ═══
+  h += '<div class="ov-card"><div class="ov-card-h" style="display:flex;align-items:center;gap:10px">';
+  h += '<span>AI 风险分析</span>';
+  var highN = risks.items.filter(function(r){return r.level==='high';}).length;
+  var medN = risks.items.filter(function(r){return r.level==='medium';}).length;
+  var lowN = risks.items.filter(function(r){return r.level==='low';}).length;
+  if (highN) h += '<span class="risk-pill risk-high">' + highN + ' 高风险</span>';
+  if (medN) h += '<span class="risk-pill risk-medium">' + medN + ' 中风险</span>';
+  if (lowN) h += '<span class="risk-pill risk-low">' + lowN + ' 低风险</span>';
+  h += '</div><div class="ov-card-b" style="padding:0">';
 
-  // 第二部分：评审者需要做的事
-  h += '<div class="ov-card"><div class="ov-card-h">建议核实（评审者操作）</div><div class="ov-card-b" style="padding:4px 14px">';
-  var sugg = [
-    { t: '接口兼容性', d: 'migrateTaskValues 签名变更（新增第三参数 + 返回值从 void 改为 Set<String>），所有调用方是否已同步修改？' },
-    { t: '数据一致性', d: '指标归属前置到任务删建之前，是否存在时序依赖导致旧归属数据被误迁移？' },
-    { t: '边界条件', d: 'allowedTargetIdsByTaskId 为 null / 空集合 / 未包含目标任务时，过滤行为是否符合预期？' },
-  ];
-  sugg.forEach(function(s) {
-    h += '<div class="vq-row">';
-    h += '<div class="vq-ic vq-act"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0V2.5A.75.75 0 0 1 8 1.5Zm0 10.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 12Zm5.65-7.65a.75.75 0 0 1 0 1.06l-1.06 1.06a.75.75 0 1 1-1.06-1.06l1.06-1.06a.75.75 0 0 1 1.06 0Zm-8.48 8.48a.75.75 0 0 1 0 1.06L4.05 15a.75.75 0 0 1-1.06-1.06l1.06-1.06a.75.75 0 0 1 1.06 0ZM14.5 8a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 14.5 8ZM4 8a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 4 8Zm8.65 4.65a.75.75 0 0 1-1.06 0l-1.06-1.06a.75.75 0 1 1 1.06-1.06l1.06 1.06a.75.75 0 0 1 0 1.06Zm-8.48-8.48a.75.75 0 0 1-1.06 0L1.05 3.05a.75.75 0 0 1 1.06-1.06l1.06 1.06a.75.75 0 0 1 0 1.06Z"/></svg></div>';
-    h += '<div class="vq-body"><div class="vq-t">' + s.t + '</div><div class="vq-d">' + s.d + '</div></div>';
+  if (risks.summary) h += '<div style="padding:10px 14px;font-size:12.5px;color:#1a1a1a;border-bottom:1px solid #f0f2f4">' + esc(risks.summary) + '</div>';
+
+  risks.items.forEach(function(r, idx) {
+    var lv = r.level === 'high' ? '高风险' : r.level === 'medium' ? '中风险' : '低风险';
+    var lc = r.level === 'high' ? 'risk-high' : r.level === 'medium' ? 'risk-medium' : 'risk-low';
+    h += '<div class="risk-item" data-rid="' + r.id + '">';
+    h += '<div class="risk-head">';
+    h += '<span class="risk-pill ' + lc + '">' + lv + '</span>';
+    h += '<span class="risk-cat">' + esc(r.category) + '</span>';
+    h += '<span class="risk-title">' + esc(r.title) + '</span>';
+    h += '<span class="risk-actions">';
+    h += '<button class="rbtn rbtn-ok" onclick="riskRespond(\'' + r.id + '\',\'confirmed\')">✓ 确认无风险</button>';
+    h += '<button class="rbtn rbtn-warn" onclick="riskRespond(\'' + r.id + '\',\'flagged\')">⚠ 有风险</button>';
+    h += '<button class="rbtn rbtn-skip" onclick="riskRespond(\'' + r.id + '\',\'skipped\')">跳过</button>';
+    h += '</span></div>';
+    h += '<div class="risk-body">';
+    h += '<div class="risk-desc">' + esc(r.desc) + '</div>';
+    if (r.evidence) h += '<div class="risk-evid"><b>证据：</b>' + esc(r.evidence) + '</div>';
+    if (r.suggestion) h += '<div class="risk-sugg"><b>建议：</b>' + esc(r.suggestion) + '</div>';
+    h += '</div>';
+    h += '<div class="risk-resp" id="resp-' + r.id + '"></div>';
     h += '</div>';
   });
   h += '</div></div>';
 
-  // 第三部分：本次分析未覆盖的范围
+  // ═══ 分析质量 ═══
+  h += '<div class="ov-card"><div class="ov-card-h">分析质量</div><div class="ov-card-b" style="padding:4px 14px">';
+  h += '<div class="vq-row"><div class="vq-ic vq-ok"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg></div>';
+  h += '<div class="vq-body"><div class="vq-t">行号回读验收</div><div class="vq-d">所有代码引用的行号已通过 codespine audit 与仓库源码交叉核对</div></div>';
+  h += '<span class="ev ev-veri">已验证</span></div>';
+  h += '</div></div>';
+
+  // ═══ 尚未覆盖 ═══
   h += '<div class="ov-card"><div class="ov-card-h">尚未覆盖</div><div class="ov-card-b" style="padding:4px 14px">';
-  ['单元测试覆盖率变化', '接口兼容性（调用方是否需要同步修改）', '数据库 schema 变更影响', '配置项变更影响'].forEach(function(item) {
-    h += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0">';
-    h += '<span class="ev ev-gap">未覆盖</span>';
-    h += '<span style="font-size:12px;color:#424a53">' + item + '</span>';
-    h += '</div>';
+  ['单元测试覆盖率变化','数据库 schema 变更影响','配置项变更影响','性能影响（大量指标迁移的批量操作）'].forEach(function(item) {
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span class="ev ev-gap">未覆盖</span><span style="font-size:12px;color:#424a53">' + item + '</span></div>';
   });
   h += '</div></div>';
 
@@ -937,6 +975,17 @@ function bindEvents() {
     };
   });
   // diff 文件标签
+  // 风险按钮
+  document.querySelectorAll('.rbtn').forEach(function(btn) {
+    btn.onclick = function(ev) {
+      ev.stopPropagation();
+      var item = btn.closest('.risk-item');
+      if (!item) return;
+      var rid = item.getAttribute('data-rid');
+      var act = btn.textContent.indexOf('确认') >= 0 ? 'confirmed' : btn.textContent.indexOf('风险') >= 0 ? 'flagged' : 'skipped';
+      riskRespond(rid, act);
+    };
+  });
   document.querySelectorAll('.diff-tree-item').forEach(function(el) {
     el.onclick = function() {
       document.querySelectorAll('.diff-tree-item').forEach(function(t){t.classList.remove('active');});
@@ -949,7 +998,55 @@ function bindEvents() {
     };
   });
 }
+document.addEventListener('click', function(ev) {
+  var btn = ev.target.closest ? ev.target.closest('.rbtn') : null;
+  if (!btn) return;
+  ev.stopPropagation();
+  var item = btn.closest('.risk-item');
+  if (!item) return;
+  var rid = item.getAttribute('data-rid');
+  var act = btn.textContent.indexOf('确认') >= 0 ? 'confirmed' : btn.textContent.indexOf('风险') >= 0 ? 'flagged' : 'skipped';
+  if (typeof riskRespond === 'function') riskRespond(rid, act);
+});
 render();
+
+function riskRespond(rid, status) {
+  var el = document.getElementById('resp-' + rid);
+  var item = document.querySelector('[data-rid="' + rid + '"]');
+  if (el && item) {
+    item.classList.remove('resp-confirmed', 'resp-flagged', 'resp-skipped');
+    if (status === 'confirmed') {
+      el.innerHTML = '<span style="color:#1a7f37;font-size:11.5px">✓ 已确认无风险</span>';
+      item.classList.add('resp-confirmed');
+    } else if (status === 'flagged') {
+      el.innerHTML = '<span style="color:#cf222e;font-size:11.5px">⚠ 标记为有风险</span>';
+      item.classList.add('resp-flagged');
+    } else {
+      el.innerHTML = '<span style="color:#57606a;font-size:11.5px">已跳过</span>';
+      item.classList.add('resp-skipped');
+    }
+    try { localStorage.setItem('codespine-risk-' + rid, status); } catch(e) {}
+  }
+}
+document.addEventListener('click', function(ev) {
+  var btn = ev.target && ev.target.closest ? ev.target.closest('.rbtn') : null;
+  if (!btn) return;
+  var item = btn.closest('.risk-item');
+  if (!item) return;
+  var rid = item.getAttribute('data-rid');
+  var act = btn.textContent.indexOf('确认') >= 0 ? 'confirmed' : btn.textContent.indexOf('风险') >= 0 ? 'flagged' : 'skipped';
+  riskRespond(rid, act);
+});
+// 恢复已保存的响应
+(function() {
+  document.querySelectorAll('.risk-item').forEach(function(item) {
+    var rid = item.getAttribute('data-rid');
+    try {
+      var saved = localStorage.getItem('codespine-risk-' + rid);
+      if (saved) riskRespond(rid, saved);
+    } catch(e) {}
+  });
+})();
 </script>
 </body>
 </html>
