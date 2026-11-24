@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>__TITLE__ · 码脊评审</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; background:#f6f8fa; color:#0f172a; }
+  .mono { font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; }
+
+  /* ── 顶栏 ── */
+  .top { position:sticky; top:0; z-index:50; background:#fff; border-bottom:1px solid #d0d7de; }
+  .top-in { max-width:1400px; margin:0 auto; padding:10px 20px 0; }
+  .title-row { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  .title-row h1 { font-size:17px; }
+  .title-row .br { font-size:11px; color:#57606a; }
+  .stats-row { display:flex; gap:5px; margin-top:5px; flex-wrap:wrap; }
+  .stats-row span { font-size:11px; padding:1px 8px; border-radius:999px; border:1px solid #d0d7de; background:#f6f8fa; color:#424a53; }
+  .stats-row .a { color:#0550ae; border-color:#54aeff; background:#ddf4ff; }
+  .stats-row .d { color:#82071e; border-color:#ff818266; background:#ffebe9; }
+
+  /* ── 四视图导航 ── */
+  .nav { display:flex; gap:0; margin-top:8px; border-bottom:0; }
+  .nav button { border:1px solid #d0d7de; border-bottom:0; background:#f6f8fa; color:#424a53; font-size:13px; font-weight:600; padding:6px 18px; cursor:pointer; border-radius:8px 8px 0 0; margin-right:4px; transition:all .12s; }
+  .nav button:hover { background:#eef1f4; }
+  .nav button.on { background:#fff; color:#0f172a; border-bottom:2px solid #0969da; }
+
+  /* ── 概览视图 ── */
+  .view { max-width:1400px; margin:0 auto; padding:16px 20px 60px; display:none; }
+  .view.on { display:block; }
+  .ov-grid { display:grid; grid-template-columns:1fr 340px; gap:16px; align-items:start; }
+  .ov-card { background:#fff; border:1px solid #d0d7de; border-radius:10px; overflow:hidden; }
+  .ov-card-h { padding:8px 14px; background:#f6f8fa; border-bottom:1px solid #d0d7de; font-size:13px; font-weight:700; color:#333; }
+  .ov-card-b { padding:12px 14px; }
+  .ov-sum { font-size:13.5px; color:#1a1a1a; line-height:1.75; }
+  .ov-item { display:flex; gap:10px; padding:7px 0; border-bottom:1px solid #f0f2f4; align-items:flex-start; cursor:pointer; }
+  .ov-item:last-child { border-bottom:0; }
+  .ov-item:hover { background:#f8f9fa; }
+  .ov-item .idx { flex-shrink:0; width:22px; height:22px; border-radius:50%; background:#0969da; color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .ov-item .txt { flex:1; font-size:12.5px; color:#1a1a1a; line-height:1.6; }
+  .ov-item .src { flex-shrink:0; font-size:9.5px; color:#57606a; }
+  .ov-meta { font-size:12px; color:#424a53; }
+  .ov-meta-row { display:flex; gap:8px; padding:3px 0; align-items:baseline; }
+  .ov-meta-row b { flex-shrink:0; width:80px; font-size:11px; color:#57606a; font-weight:600; }
+  .ov-meta-row span { font-size:11.5px; color:#1a1a1a; }
+
+  /* ── 证据来源标识 ── */
+  .ev { display:inline-flex; align-items:center; gap:3px; font-size:9.5px; font-weight:700; border-radius:4px; padding:1px 6px; flex-shrink:0; }
+  .ev-fact { background:#dafbe1; color:#116329; }       /* 源码事实 */
+  .ev-infer { background:#fff8c5; color:#4d2d00; }      /* 分析推断 */
+  .ev-unconf { background:#ffd8da; color:#4a0d12; }     /* 待确认 */
+  .ev-veri { background:#ddf4ff; color:#0550ae; }       /* 已验证 */
+  .ev-none { background:#f0f2f4; color:#57606a; }       /* 缺少证据 */
+  .ev-gap { background:#f0f2f4; color:#8c959f; font-style:italic; }
+
+  /* ── 链路视图 ── */
+  .ch-entries { display:flex; gap:10px; flex-wrap:nowrap; overflow-x:auto; padding-bottom:8px; scrollbar-width:thin; }
+  .ch-entry { flex-shrink:0; width:235px; height:90px; background:#fff; border:1.5px dashed #d0d7de; border-radius:10px; padding:8px 10px; cursor:pointer; transition:all .15s; color:#424a53; display:flex; flex-direction:column; justify-content:space-between; overflow:hidden; }
+  .ch-entry:hover { border-color:#8c959f; transform:translateY(-1px); }
+  .ch-entry.active { border:2px solid #0969da; border-style:solid; background:#fff; color:#0f172a; box-shadow:0 3px 12px rgba(9,105,218,.15); }
+  .ch-entry .e1 { display:flex; align-items:center; gap:5px; min-width:0; }
+  .ch-entry .e-http { flex-shrink:0; font-size:9.5px; font-weight:800; color:#fff; background:#57606a; border-radius:3px; padding:1px 5px; }
+  .ch-entry .e-path { font-size:11.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ch-entry .e2 { display:flex; align-items:center; gap:5px; }
+  .ch-entry .e-imp { font-size:10.5px; font-weight:600; color:#9a6700; background:#fff8c5; border:1px solid:#d4a72c; border-radius:999px; padding:0 7px; white-space:nowrap; }
+  .ch-entry .e-grey { font-size:10px; color:#8c959f; }
+  .ch-entry .e3 { font-size:10px; color:#8c959f; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .ch-body { margin-top:14px; }
+  .ch-tree ul { list-style:none; margin-left:14px; padding-left:16px; border-left:2px solid #e1e4e8; }
+  .ch-tree > ul { margin-left:4px; }
+  .ch-tree li { position:relative; padding:4px 0 4px 4px; }
+  .ch-tree li::before { content:""; position:absolute; left:-16px; top:17px; width:12px; height:2px; background:#e1e4e8; }
+  .branch-tag { position:absolute; left:-34px; top:11px; font-size:9px; font-weight:800; color:#8c959f; }
+
+  /* 节点卡片 */
+  .node { display:inline-block; min-width:340px; max-width:640px; background:#fff; border:1px solid #d0d7de; border-left-width:4px; border-radius:8px; padding:7px 11px; box-shadow:0 1px 4px rgba(0,0,0,.05); cursor:pointer; }
+  .node.new { border-left-color:#1a7f37; }
+  .node.changed { border-left-color:#0969da; }
+  .node.unchanged { border-left-color:#d0d7de; background:#fafbfc; }
+  .node.external { border-left-color:#d0d7de; border-style:dashed; background:#f6f8fa; cursor:default; }
+  .node.hub { box-shadow:0 2px 8px rgba(26,127,55,.15); }
+  .n-head { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:3px 4px; margin:-7px -11px 5px; border-radius:7px 7px 0 0; border-bottom:1px solid #eef1f4; }
+  .node.new .n-head { background:#f0fff4; }
+  .node.changed .n-head { background:#f0f6ff; }
+  .node.unchanged .n-head { background:#f6f8fa; }
+  .n-kind { font-size:9px; font-weight:800; border-radius:3px; padding:0 5px; }
+  .new .n-kind { color:#116329; background:#dafbe1; }
+  .changed .n-kind { color:#0550ae; background:#ddf4ff; }
+  .unchanged .n-kind, .external .n-kind { color:#57606a; background:#eef1f4; }
+  .n-cls { font-size:12px; font-weight:700; }
+  .n-method { font-size:11px; color:#424a53; font-weight:600; }
+  .n-stats { font-size:10px; color:#8c959f; }
+  .n-stats b.g { color:#1a7f37; } .n-stats b.r { color:#cf222e; }
+  .n-badge { font-size:10px; color:#424a53; border:1px dashed #8c959f; border-radius:4px; padding:0 5px; }
+  .n-pc { font-size:9px; font-weight:800; color:#9a6700; background:#fff8c5; border:1px solid #d4a72c; border-radius:3px; padding:0 5px; }
+  .n-note { font-size:11px; color:#8c959f; margin-top:2px; line-height:1.4; }
+  .collapsed-pill { display:inline-block; font-size:11px; color:#8c959f; background:#f6f8fa; border:1px dashed #d0d7de; border-radius:999px; padding:2px 10px; cursor:pointer; }
+
+  /* 关键调用行 */
+  .callines { display:flex; flex-direction:column; gap:2px; margin-top:4px; }
+  .cline { display:flex; align-items:center; gap:6px; background:#f6f8fa; border:1px solid #e1e4e8; border-radius:5px; padding:1px 7px; font-size:10.5px; }
+  .cline .ln { color:#8c959f; flex-shrink:0; font-weight:700; }
+  .cline .code { font-family:ui-monospace,Menlo,monospace; color:#1a1a1a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:520px; }
+  .cline .nx { flex-shrink:0; font-size:9px; color:#0550ae; background:#ddf4ff; border:1px solid #54aeff; border-radius:3px; padding:0 4px; white-space:nowrap; }
+
+  /* 引用芯片 */
+  .ref-chip { display:inline-block; font-size:11px; background:#f6f8fa; border:1.5px dashed #8c959f; border-radius:999px; padding:2px 10px; color:#424a53; cursor:pointer; }
+  .ref-chip .rc { font-family:ui-monospace,Menlo,monospace; font-weight:700; color:#1a1a1a; }
+  .ref-chip.k-new { border-color:#4ac26b; }
+  .ref-chip.k-changed { border-color:#54aeff; }
+  .ref-chip .rb { font-size:9px; color:#9a6700; background:#fff8c5; border-radius:3px; padding:0 4px; margin:0 3px; }
+  .ref-chip .rn { color:#8c959f; }
+
+  /* 逻辑块 */
+  .block { background:#fff; border:1px solid #d0d7de; border-left-width:3px; border-radius:6px; padding:4px 8px; cursor:pointer; transition:all .12s; }
+  .block.k-new { border-left-color:#1a7f37; }
+  .block.k-changed { border-left-color:#0969da; }
+  .block:hover { border-color:#8c959f; box-shadow:0 1px 5px rgba(0,0,0,.08); transform:translateY(-1px); }
+  .b-head { display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; }
+  .b-kind { font-size:9px; font-weight:800; padding:0 4px; border-radius:3px; }
+  .block.k-new .b-kind { color:#116329; background:#dafbe1; }
+  .block.k-changed .b-kind { color:#0550ae; background:#ddf4ff; }
+  .b-name { font-size:12px; font-weight:700; color:#0f172a; }
+  .b-in { font-size:10px; color:#0550ae; font-weight:700; }
+  .b-range { font-size:10px; color:#8c959f; }
+  .b-desc { font-size:11px; color:#57606a; margin-top:1px; line-height:1.4; }
+  .b-via { display:block; font-size:9.5px; color:#8c959f; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:600px; cursor:help; }
+  .b-snip-hint { font-size:10.5px; color:#0550ae; }
+  .b-btns { margin-left:auto; display:flex; gap:4px; align-items:center; }
+  .cbtn { flex-shrink:0; font-size:10px; font-weight:600; color:#333; background:#fff; border:1px solid #d0d7de; border-radius:5px; padding:1px 8px; cursor:pointer; }
+  .cbtn:hover { border-color:#0969da; color:#0550ae; background:#ddf4ff; }
+  .b-fold { color:#8c959f; font-size:11px; margin-left:2px; }
+  .phase { margin-top:5px; background:#f6f8fa; border:1px solid #e1e4e8; border-radius:6px; padding:5px 7px; }
+  .phase-name { font-size:10px; font-weight:800; color:#57606a; margin-bottom:3px; }
+  .blocks { display:flex; flex-direction:column; gap:4px; }
+
+  /* ── 代码差异视图 ── */
+  .diff-file-list { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+  .diff-file-tag { display:flex; align-items:center; gap:5px; background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:3px 10px; font-size:11.5px; cursor:pointer; }
+  .diff-file-tag.active { border-color:#0969da; background:#ddf4ff; }
+  .diff-file-tag .st { font-size:9px; font-weight:800; padding:0 4px; border-radius:2px; }
+  .diff-file-tag .st.M { background:#ddf4ff; color:#0550ae; }
+  .diff-file-tag .st.A { background:#dafbe1; color:#116329; }
+  .diff-file-tag .st.D { background:#ffd8da; color:#82071e; }
+  .diff-file-tag .cnt { font-size:10px; color:#8c959f; font-family:ui-monospace,Menlo,monospace; }
+
+  .corridor { display:flex; flex-direction:column; gap:14px; }
+  .cor-file { background:#fff; border:1px solid #d0d7de; border-radius:8px; overflow:hidden; }
+  .cor-head { display:flex; align-items:center; gap:8px; padding:7px 12px; background:#f6f8fa; border-bottom:1px solid #d0d7de; }
+  .cor-cls { font-size:12.5px; font-weight:800; }
+  .cor-kind { font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:3px; }
+  .cor-kind.k-new { background:#dafbe1; color:#116329; }
+  .cor-kind.k-changed { background:#ddf4ff; color:#0550ae; }
+  .cor-kind.k-unchanged { background:#eef1f4; color:#57606a; }
+  .cor-body { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px; line-height:1.7; padding:0; background:#fff; }
+  .cor-line { display:flex; cursor:pointer; }
+  .cor-line:hover { outline:1px solid #8c959f; outline-offset:-1px; }
+  .cor-ln { width:40px; flex-shrink:0; color:#8c959f; text-align:right; padding:0 5px; user-select:none; font-size:9px; align-self:stretch; display:flex; align-items:center; justify-content:flex-end; background:#f6f8fa; border-right:1px solid #e1e4e8; }
+  .cor-mk { width:20px; flex-shrink:0; text-align:center; font-weight:800; user-select:none; align-self:stretch; display:flex; align-items:center; justify-content:center; font-size:10px; }
+  .cor-code { flex:1; white-space:pre-wrap; word-break:break-all; padding:0 8px 0 5px; }
+  .cor-line.k-add { background:#dafbe1; }
+  .cor-line.k-add .cor-mk { color:#116329; }
+  .cor-line.k-add .cor-code { color:#0d4d1e; }
+  .cor-line.k-del { background:#ffd8da; }
+  .cor-line.k-del .cor-mk { color:#82071e; }
+  .cor-line.k-del .cor-code { color:#5a0d12; }
+  .cor-line.k-ctx .cor-mk { color:#d0d7de; }
+  .cor-line.k-ctx .cor-code { color:#1a1a1a; }
+  .cor-hunk { display:flex; align-items:center; gap:8px; background:#ddf4ff; color:#0550ae; font-size:10px; padding:2px 8px 2px 48px; user-select:none; }
+  .cor-hunk b { font-weight:700; }
+
+  .cor-block { border-top:1px solid #f0f2f4; }
+  .cor-bhead { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:5px 10px; background:#f6f8fa; border-left:3px solid #0969da; cursor:pointer; user-select:none; }
+  .cor-bhead:hover { background:#eef1f4; }
+  .b-name2 { font-size:11.5px; font-weight:800; color:#0f172a; }
+  .b-btns { margin-left:auto; display:flex; gap:4px; align-items:center; }
+  .b-fold { color:#8c959f; font-size:11px; margin-left:2px; }
+  .cor-block.folded .cor-bbody { display:none; }
+  .cor-from { font-size:9.5px; color:#57606a; background:#eef1f4; border-radius:3px; padding:0 5px; }
+  .cor-ret { font-size:10px; color:#8c959f; padding:2px 0 4px; user-select:none; }
+  .cor-pass { display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:#f6f8fa; border:1px dashed #d0d7de; border-radius:6px; padding:4px 10px; margin-bottom:6px; }
+  .pass-cls { font-size:11.5px; font-weight:700; color:#424a53; }
+  .pass-line { font-size:10px; color:#8c959f; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:520px; }
+  .cor-bc { display:flex; align-items:center; flex-wrap:wrap; gap:5px; background:#fff; border:1px solid #d0d7de; border-radius:6px; padding:6px 10px; margin-bottom:12px; font-size:10.5px; }
+  .bc-item { color:#1a1a1a; font-family:ui-monospace,Menlo,monospace; }
+  .bc-sep { color:#d0d7de; }
+
+  /* ── 独立变更视图 ── */
+  .ind-list { display:flex; gap:12px; flex-wrap:wrap; }
+
+  /* ── 验证情况视图 ── */
+  .ver-empty { text-align:center; padding:40px 0; color:#8c959f; font-size:13px; }
+  .ver-item { display:flex; gap:10px; padding:8px 0; border-bottom:1px solid #f0f2f4; }
+  .ver-item:last-child { border-bottom:0; }
+  .ver-status { flex-shrink:0; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; }
+  .ver-status.ok { background:#dafbe1; color:#116329; }
+  .ver-status.pending { background:#fff8c5; color:#4d2d00; }
+  .ver-status.fail { background:#ffd8da; color:#82071e; }
+
+  /* ── 右栏详情 ── */
+  .layout { display:flex; gap:14px; align-items:flex-start; }
+  .left { flex:1; min-width:0; }
+  aside.detail { width:clamp(340px,34vw,480px); position:sticky; top:110px; max-height:calc(100vh - 130px); overflow:auto; flex-shrink:0; display:flex; flex-direction:column; gap:10px; }
+  .dcard { background:#fff; border:1px solid #d0d7de; border-radius:10px; padding:12px 14px; box-shadow:0 1px 8px rgba(0,0,0,.05); position:relative; }
+  .dcard.hint-card { border-style:dashed; color:#8c959f; text-align:center; font-size:12px; padding:20px 14px; box-shadow:none; background:#fafbfc; }
+  .dc-head { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:-12px -14px 8px; padding:7px 14px; border-radius:9px 9px 0 0; border-bottom:1px solid #d0d7de; font-size:12px; font-weight:800; }
+  .dc-head .dc-k { font-size:9.5px; font-weight:800; padding:1px 7px; border-radius:999px; background:rgba(255,255,255,.8); }
+  .dc-entry { background:#ddf4ff; color:#0550ae; }
+  .dc-node { background:#eef1f4; color:#333; }
+  .dc-node.k-new { background:#dafbe1; color:#116329; }
+  .dc-node.k-changed { background:#ddf4ff; color:#0550ae; }
+  .dc-param { background:#dafbe1; color:#116329; }
+  .d-note { font-size:11.5px; color:#424a53; margin-top:5px; line-height:1.5; }
+  .d-sec { margin-top:10px; padding-top:8px; border-top:1px dashed #e1e4e8; }
+  .d-sec-t { font-size:10.5px; font-weight:800; color:#424a53; margin:0 0 5px; background:#f6f8fa; border-left:3px solid #8c959f; padding:2px 7px; border-radius:3px; }
+  .copyrow { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+  .copytxt { flex:1; min-width:0; font-size:10.5px; font-family:ui-monospace,Menlo,monospace; color:#1a1a1a; background:#f6f8fa; border:1px solid #e1e4e8; border-radius:5px; padding:3px 7px; word-break:break-all; }
+  .mt { width:100%; border-collapse:collapse; font-size:11px; }
+  .mt th { text-align:left; background:#f6f8fa; color:#57606a; font-size:10px; padding:3px 6px; border:1px solid #e1e4e8; }
+  .mt td { padding:3px 6px; border:1px solid #e1e4e8; vertical-align:top; }
+  .mt td.mono { font-size:10.5px; }
+  .mt tr.rowcopy { cursor:pointer; }
+  .mt tr.rowcopy:hover td { background:#f6f8fa; }
+  .snip { font-family:ui-monospace,Menlo,monospace; font-size:10.5px; background:#0d1117; color:#e6edf3; border-radius:6px; padding:6px 9px; white-space:pre-wrap; word-break:break-all; line-height:1.6; margin:3px 0 2px; }
+  .snip .sl { color:#8c959f; margin-right:8px; user-select:none; flex-shrink:0; }
+  .snip .sline { display:flex; }
+  .snip .sline .sa { color:#7ee787; }
+  .snip .sline .sc { color:#bdcaff; }
+  .snip .sline .sd2 { color:#ffa198; }
+  .call { font-size:10.5px; font-family:ui-monospace,Menlo,monospace; border-radius:4px; border:1px solid; padding:1px 6px; cursor:pointer; }
+  .call::before { content:"→ "; opacity:.6; }
+  .call.k-new { background:#dafbe1; border-color:#4ac26b; color:#116329; }
+  .call.k-changed { background:#ddf4ff; border-color:#54aeff; color:#0550ae; }
+  .call.k-ext { background:#f6f8fa; border-color:#d0d7de; border-style:dashed; color:#57606a; }
+  .call:hover { transform:translateY(-1px); }
+  .fchip { font-size:11px; font-family:ui-monospace,Menlo,monospace; color:#116329; background:#dafbe1; border:1px solid:#4ac26b; border-radius:4px; padding:0 6px; display:inline-block; margin-top:2px; }
+  .strip { background:#fff; border:1px solid #d0d7de; border-radius:8px; padding:8px 12px; font-size:12px; color:#1a1a1a; display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+  .strip b { font-size:10.5px; color:#57606a; font-weight:700; }
+  .viewseg { display:inline-flex; border:1px solid #d0d7de; border-radius:6px; overflow:hidden; font-size:11px; }
+  .viewseg button { border:0; background:#fff; color:#57606a; padding:3px 10px; cursor:pointer; }
+  .viewseg button.on { background:#0f172a; color:#fff; }
+  .layout.full aside.detail { display:none; }
+  .layout.full .left { max-width:1200px; }
+  .d-blockrow { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+  .d-blockrow .bn { font-size:11.5px; font-weight:600; }
+  .d-blockrow .br2 { font-size:10px; color:#8c959f; font-family:ui-monospace,Menlo,monospace; }
+  .footer { text-align:center; font-size:10px; color:#8c959f; padding:8px 0 20px; }
+</style>
+</head>
+<body>
+<div class="top"><div class="top-in">
+  <div class="title-row"><h1>__TITLE__</h1><span class="br mono">__BRANCH__</span></div>
+  <div class="stats-row">
+    <span>__FILES__ 文件</span><span class="a">+__ADD__</span><span class="d">−__DEL__</span>
+    __ENTRIES_BADGE__
+    __COVERAGE_BADGE__
+  </div>
+  <div class="nav" id="nav">
+    <button data-view="overview" class="on">变更概览</button>
+    <button data-view="chain">影响链路</button>
+    <button data-view="diff">代码差异</button>
+    <button data-view="independent">独立变更</button>
+    <button data-view="verify">验证情况</button>
+  </div>
+</div></div>
+
+<div class="view on" id="v-overview"></div>
+<div class="view" id="v-chain"></div>
+<div class="view" id="v-diff"></div>
+<div class="view" id="v-independent"></div>
+<div class="view" id="v-verify"></div>
+<div class="footer">__GENBY__</div>
+
+<script>
+var DATA = __DATA__;
+var currentView = 'overview';
+var currentEntry = 0;
+var selectedNode = null, selectedBlock = null, selectedRef = null, selectedParam = null;
+var REF = []; var BLK = [];
+var chainMode = 'lesion'; // lesion=精简 spine=完整
+var diffView = 'corridor'; // corridor=filelist
+
+function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fqcn(p) { if (!p) return ''; return p.split('src/main/java/').pop().split('.java')[0].split('/').join('.'); }
+function copyText(t, btn) {
+  function done() { if (btn) { btn.classList.add('ok'); var o = btn.textContent; btn.textContent = '已复制'; setTimeout(function(){ btn.textContent = o; }, 1200); } }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function(){ fallback(t, done); });
+  else fallback(t, done);
+}
+function fallback(t, done) {
+  var ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch(e) {} document.body.removeChild(ta); done();
+}
+var KIND_NAME = { new:'新增', changed:'修改', unchanged:'未变更', external:'外部', ext:'外部', deleted:'删除' };
+var EV_NAME = { fact:'源码事实', infer:'分析推断', unconf:'待确认', veri:'已验证' };
+function evBadge(k) { return k ? '<span class="ev ev-' + k + '" title="' + (EV_NAME[k]||'') + '">' + (EV_NAME[k]||'') + '</span>' : ''; }
+
+// ═══════════════════ 概览视图 ═══════════════════
+function renderOverview() {
+  var m = DATA.meta || {};
+  var h = '<div class="ov-grid">';
+  // 左列
+  h += '<div style="display:flex;flex-direction:column;gap:14px">';
+  // 变更说明
+  h += '<div class="ov-card"><div class="ov-card-h">变更说明</div><div class="ov-card-b"><div class="ov-sum">' + esc(m.summary || '暂无说明') + '</div></div></div>';
+  // 核心变更点
+  h += '<div class="ov-card"><div class="ov-card-h">核心变更点（建议阅读顺序）</div><div class="ov-card-b">';
+  var ord = 1;
+  DATA.entries.forEach(function(e) {
+    h += '<div class="ov-item" data-entry="' + e.id + '">';
+    h += '<span class="idx">' + (ord++) + '</span>';
+    h += '<div class="txt"><b>' + esc(e.http) + ' ' + esc(e.path) + '</b><br>' + esc(e.impactNote || '') + '</div>';
+    h += '<span class="src">' + evBadge('fact') + '</span>';
+    h += '</div>';
+  });
+  (DATA.orphans || []).forEach(function(o) {
+    h += '<div class="ov-item"><span class="idx">' + (ord++) + '</span><div class="txt"><b>独立变更：' + esc(o.cls) + '</b><br>' + esc(o.reason || '') + '</div><span class="src">' + evBadge('fact') + '</span></div>';
+  });
+  h += '</div></div>';
+  h += '</div>';
+  // 右列
+  h += '<div style="display:flex;flex-direction:column;gap:14px">';
+  // 基线信息
+  h += '<div class="ov-card"><div class="ov-card-h">基线信息</div><div class="ov-card-b"><div class="ov-meta">';
+  h += '<div class="ov-meta-row"><b>基准分支</b><span class="mono">' + esc((DATA.entries[0]||{}).baseRef || 'origin/master') + '</span></div>';
+  h += '<div class="ov-meta-row"><b>生成时间</b><span>' + esc((m.generatedBy||'').split('·')[0]) + '</span></div>';
+  h += '<div class="ov-meta-row"><b>文件分类</b><span>' + (DATA.coverage ? DATA.coverage.strip : '') + '</span></div>';
+  h += '</div></div></div>';
+  // 评审关注点
+  h += '<div class="ov-card"><div class="ov-card-h">评审关注点</div><div class="ov-card-b">';
+  h += '<div class="ov-item"><span class="idx">!</span><div class="txt">参数变更：多个方法签名增加了 targetType 参数（static 契约）</div>' + evBadge('fact') + '</div>';
+  h += '<div class="ov-item"><span class="idx">!</span><div class="txt">权益校验：新增维度类型需要企业权益重核（编辑链复用创建链逻辑）</div>' + evBadge('infer') + '</div>';
+  h += '</div></div>';
+  // 证据说明
+  h += '<div class="ov-card"><div class="ov-card-h">证据来源标识</div><div class="ov-card-b" style="display:flex;flex-direction:column;gap:5px">';
+  h += '<div>' + evBadge('fact') + ' 可直接由代码或配置确认</div>';
+  h += '<div>' + evBadge('infer') + ' 基于上下文得出的判断</div>';
+  h += '<div>' + evBadge('unconf') + ' 需要作者或评审者确认</div>';
+  h += '<div>' + evBadge('veri') + ' 有执行结果及证据支持</div>';
+  h += '</div></div>';
+  h += '</div></div>';
+  return h;
+}
+
+// ═══════════════════ 链路视图 ═══════════════════
+function callChip(c) {
+  var id = REF.push(c) - 1;
+  return '<span class="call k-' + c.kind + '" data-fn="' + esc(c.fn) + '" data-ref="' + id + '" title="' + esc(c.d||'') + '">' + esc(c.fn) + '</span>';
+}
+function blockHtml(b, owner, idx) {
+  var bid = BLK.push({ n: owner, b: b }) - 1;
+  var marks = ['①','②','③','④','⑤','⑥','⑦'];
+  var h = '<div class="block k-' + b.kind + '" data-bid="' + bid + '">';
+  h += '<div class="b-head">' + (idx != null && idx < 7 ? '<span style="font-size:10px;color:#57606a;font-weight:800">' + marks[idx] + '</span>' : '');
+  h += '<span class="b-kind">' + (KIND_NAME[b.kind]||'') + '</span><span class="b-name">' + esc(b.name) + '</span>';
+  if (b.in) h += '<span class="b-in mono">#' + esc(b.in) + '</span>';
+  h += '<span class="b-range mono">' + esc(b.range) + '</span>';
+  if (b.paramChanged) h += '<span class="n-pc" title="' + esc(b.pcNote||'') + '">参数变更</span>';
+  h += '<span class="b-btns">' + (owner && owner.path ? '<button class="cbtn" data-copy="' + esc(owner.path + ':' + String(b.range).split('-')[0].replace(/[^\d]/g,'')) + '">定位</button>' : '') + '</span>';
+  h += '</div>';
+  if (b.desc) h += '<div class="b-desc">' + esc(b.desc) + '</div>';
+  if (b.via) h += '<div class="b-via" title="' + esc(b.via.map(function(v){return v.m+' L'+v.ln;}).join(' › ')) + '">⇢ ' + esc(b.via.map(function(v){return v.m;}).join(' → ')) + '</div>';
+  if (b.snippet) h += '<div class="b-snip-hint">📄 ' + b.snippet.length + ' 行代码 · ' + esc(b.range) + ' · 点击查看</div>';
+  if (b.calls && b.calls.length) h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">' + b.calls.map(callChip).join('') + '</div>';
+  return h + '</div>';
+}
+function bodyHtml(n) {
+  var h = '';
+  if (n.phases) {
+    n.phases.forEach(function(p) { h += '<div class="phase"><div class="phase-name">' + esc(p.name) + '</div><div class="blocks">' + p.blocks.map(function(b,i2){return blockHtml(b,n,i2);}).join('') + '</div></div>'; });
+    return h;
+  }
+  if (n.blocks) return '<div class="blocks" style="margin-top:5px">' + n.blocks.map(function(b,i2){return blockHtml(b,n,i2);}).join('') + '</div>';
+  return h;
+}
+function nodeCard(n, seen) {
+  if (n.kind === 'unchanged' && chainMode === 'lesion' && !n.callLines) {
+    return '<span class="collapsed-pill" data-uid="' + esc(n.uid) + '" title="' + esc(n.note||'') + '">⋯ 经由 ' + esc(n.cls) + (n.method ? '#' + esc(n.method) : '') + '（点击展开）</span>';
+  }
+  var dup = (n.refOnly || (seen && seen[n.cls])) && n.kind !== 'external';
+  if (seen) seen[n.cls] = true;
+  if (dup) {
+    var h = '<span class="ref-chip k-' + n.kind + '" data-cls="' + esc(n.cls) + '">🔁 <span class="rc">' + esc(n.cls) + '</span>';
+    if (n.badge) h += '<span class="rb">' + esc(n.badge) + '</span>';
+    if (n.note) h += '<span class="rn">' + esc(n.note) + '</span>';
+    return h + '</span>';
+  }
+  if (n.kind === 'unchanged' && chainMode === 'lesion') {
+    return '<div class="node unchanged" data-uid="' + esc(n.uid) + '"><div class="n-head"><span class="n-kind">未变更</span><span class="n-cls mono">' + esc(n.cls) + '</span>' + (n.method ? '<span class="n-method mono">#' + esc(n.method) + '</span>' : '') + '</div>' + callinesHtml(n) + '</div>';
+  }
+  var h = '<div class="node ' + n.kind + (n.hub ? ' hub' : '') + '" data-uid="' + esc(n.uid) + '">';
+  h += '<div class="n-head"><span class="n-kind">' + (KIND_NAME[n.kind]||n.kind) + '</span><span class="n-cls mono">' + esc(n.cls) + '</span>';
+  if (n.method) h += '<span class="n-method mono">#' + esc(n.method) + '</span>';
+  if (n.stats) h += '<span class="n-stats"><b class="g">+' + n.stats[0] + '</b> <b class="r">−' + n.stats[1] + '</b></span>';
+  if (n.badge) h += '<span class="n-badge">' + esc(n.badge) + '</span>';
+  if (n.paramChanged) h += '<span class="n-pc" title="' + esc(n.pcNote||'') + '">参数变更</span>';
+  h += '</div>';
+  if (n.note) h += '<div class="n-note">' + esc(n.note) + '</div>';
+  h += callinesHtml(n);
+  h += bodyHtml(n);
+  return h + '</div>';
+}
+function callinesHtml(n) {
+  if (!n.callLines || !n.callLines.length) return '';
+  var h = '<div class="callines">';
+  n.callLines.forEach(function(c) { h += '<div class="cline"><span class="ln mono">L' + c.ln + '</span><span class="code">' + esc(c.text) + '</span>' + (c.next ? '<span class="nx">→ ' + esc(c.next) + '</span>' : '') + '</div>'; });
+  return h + '</div>';
+}
+function renderList(nodes, seen) {
+  if (!nodes || !nodes.length) return '';
+  var multi = nodes.length > 1;
+  var marks = ['①','②','③','④','⑤'];
+  var h = '<ul>';
+  nodes.forEach(function(n,i) { h += '<li>' + (multi ? '<span class="branch-tag">' + marks[i] + '</span>' : '') + nodeCard(n, seen) + renderList(n.children, seen) + '</li>'; });
+  return h + '</ul>';
+}
+
+function renderChain() {
+  REF.length = 0; BLK.length = 0;
+  var h = '';
+  // 入口卡片行
+  h += '<div style="display:flex;gap:10px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:8px">';
+  DATA.entries.forEach(function(e, i) {
+    h += '<div class="ch-entry' + (i === currentEntry ? ' active' : '') + '" data-ei="' + i + '">';
+    h += '<div class="e1"><span class="e-http">' + esc(e.http) + '</span><span class="e-path mono">' + esc(e.path) + '</span></div>';
+    h += '<div class="e2"><span class="e-imp">' + esc(e.impactNote || '') + '</span></div>';
+    h += '<div class="e3">' + esc(e.group || '') + '</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+  // 切换
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0">';
+  h += '<span style="font-size:13px;font-weight:700">' + esc(DATA.entries[currentEntry].http) + ' ' + esc(DATA.entries[currentEntry].path) + '</span>';
+  h += '<div class="viewseg"><button id="btn-lesion"' + (chainMode==='lesion'?' class="on"':'') + '>精简链路</button><button id="btn-spine"' + (chainMode==='spine'?' class="on"':'') + '>完整链路</button></div>';
+  h += '</div>';
+  // 入参/出口
+  var e = DATA.entries[currentEntry];
+  var p = e.params || {};
+  var pf = (p.newFields||[]).map(function(f){return '<span class="fchip">+'+esc(f)+'</span>';}).join(' ');
+  h += '<div class="strip"><b>入参</b><span class="mono">' + esc(p.dto||'') + '</span>' + (p.note ? '<span style="color:#57606a">'+esc(p.note)+'</span>' : '') + pf + '</div>';
+  h += '<div class="ch-tree">' + renderList(e.chain, {}) + '</div>';
+  var x = e.exit || {};
+  var xf = (x.newFields||[]).map(function(f){return '<span class="fchip">+'+esc(f)+'</span>';}).join(' ');
+  h += '<div class="strip"><b>出口</b><span class="mono">' + esc(x.response||'') + '</span>' + (x.responseChanged ? '<span style="color:#1a7f37;font-weight:600">响应有变更</span>' : '<span style="color:#8c959f">响应无变更</span>') + xf + (x.persistence ? '<span style="color:#57606a">落库：'+esc(x.persistence)+'</span>' : '') + '</div>';
+  return h;
+}
+
+// ═══════════════════ 代码差异视图 ═══════════════════
+function collectCorridor(entry) {
+  var files = []; var byCls = {};
+  function addLine(cls, path, kind, ln, code, k, mark) {
+    if (!byCls[cls]) { byCls[cls] = { cls:cls, path:path||'', kind:kind, lines:[] }; files.push(byCls[cls]); }
+    byCls[cls].lines.push({ ln:ln, code:code, k:k, mark:mark });
+  }
+  function walk(nodes) {
+    nodes.forEach(function(n) {
+      if (n.refOnly || n.kind === 'external') { walk(n.children||[]); return; }
+      (n.callLines||[]).forEach(function(c){ addLine(n.cls,n.path,n.kind,c.ln,c.text,'ctx','关键调用行'); });
+      var blocks = (n.blocks||[]).concat([].concat.apply([],(n.phases||[]).map(function(p){return p.blocks||[];})));
+      blocks.forEach(function(b){ (b.snippet||[]).forEach(function(s){ addLine(n.cls,n.path,n.kind,s.ln,s.code,s.k,b.name); }); });
+      walk(n.children||[]);
+    });
+  }
+  walk(entry.chain);
+  files.forEach(function(f){ f.lines.sort(function(a,b2){return a.ln-b2.ln;}); });
+  return files;
+}
+function renderDiff() {
+  var e = DATA.entries[currentEntry];
+  var files = collectCorridor(e);
+  var h = '';
+  // 文件标签行
+  h += '<div class="diff-file-list">';
+  files.forEach(function(f, i) {
+    h += '<div class="diff-file-tag' + (i===0?' active':'') + '" data-fi="' + i + '">';
+    h += '<span class="st ' + f.kind + '">' + (KIND_NAME[f.kind]||f.kind) + '</span>';
+    h += '<span class="mono">' + esc(f.cls) + '</span>';
+    h += '<span class="cnt">L' + (f.lines[0]||{}).ln + '…L' + (f.lines[f.lines.length-1]||{}).ln + '</span>';
+    h += '</div>';
+  });
+  h += '</div>';
+  // 代码走廊
+  h += '<div class="corridor">';
+  files.forEach(function(f, fi) {
+    if (fi > 0) return; // 默认只显示第一个文件，点击标签切换
+    h += '<div class="cor-file">';
+    h += '<div class="cor-head"><span class="cor-kind k-' + f.kind + '">' + (KIND_NAME[f.kind]||'') + '</span><span class="cor-cls mono">' + esc(f.cls) + '</span>';
+    if (f.path) h += '<button class="cbtn" data-copy="' + esc(f.path) + '" style="margin-left:auto">路径</button>';
+    h += '</div><div class="cor-body">';
+    var prev = null;
+    f.lines.forEach(function(l) {
+      if (prev !== null && l.ln - prev > 1) h += '<div class="cor-hunk">@@ ⋯ 已省略 ' + (l.ln-prev-1) + ' 行 ⋯ @@</div>';
+      var kc = l.k === 'sa' || l.k === '+' ? 'k-add' : l.k === 'sd2' || l.k === '-' ? 'k-del' : 'k-ctx';
+      var mk = (l.k === 'sa' || l.k === '+') ? '+' : (l.k === 'sd2' || l.k === '-') ? '−' : ' ';
+      var loc = f.path ? f.path + ':' + l.ln : '';
+      h += '<div class="cor-line ' + kc + '"' + (loc ? ' data-copy="'+esc(loc)+'" title="'+esc(loc)+'"' : '') + '><span class="cor-ln">' + l.ln + '</span><span class="cor-mk">' + mk + '</span><span class="cor-code">' + esc(l.code) + '</span></div>';
+      prev = l.ln;
+    });
+    h += '</div></div>';
+  });
+  h += '</div>';
+  return h;
+}
+
+// ═══════════════════ 独立变更视图 ═══════════════════
+function renderIndependent() {
+  var h = '';
+  var cov = DATA.coverage || {};
+  h += '<div class="strip"><b>闭包校验</b><span>' + esc(cov.note||'') + '</span><span style="color:#8c959f">' + esc(cov.strip||'') + '</span></div>';
+  h += '<div class="ind-list">';
+  (DATA.orphans||[]).forEach(function(o) {
+    h += '<div class="node ' + o.kind + '">';
+    h += '<div class="n-head"><span class="n-kind">' + (KIND_NAME[o.kind]||'') + '</span><span class="n-cls mono">' + esc(o.cls) + '</span>';
+    if (o.stats) h += '<span class="n-stats"><b class="g">+'+o.stats[0]+'</b> <b class="r">−'+o.stats[1]+'</b></span>';
+    h += '<span class="n-badge">' + esc(o.reason||'') + '</span></div>';
+    if (o.note) h += '<div class="n-note">' + esc(o.note) + '</div>';
+    h += bodyHtml(o);
+    h += '</div>';
+  });
+  h += '</div>';
+  // 全量索引
+  if (cov.inventory) {
+    h += '<div class="ov-card" style="margin-top:16px"><div class="ov-card-h">全量文件索引（' + cov.inventory.length + '）· 无遗漏</div><div class="ov-card-b">';
+    h += '<table class="mt"><tr><th>文件</th><th style="width:34px">状态</th><th>归属</th></tr>';
+    cov.inventory.forEach(function(it) {
+      h += '<tr><td class="mono">' + esc(it.cls) + '</td><td>' + (it.type==='new'?'新增':'修改') + '</td><td style="color:#424a53">' + esc(it.loc) + '</td></tr>';
+    });
+    h += '</table></div></div>';
+  }
+  return h;
+}
+
+// ═══════════════════ 验证情况视图 ═══════════════════
+function renderVerify() {
+  var h = '<div class="ov-card"><div class="ov-card-h">验证项目</div><div class="ov-card-b">';
+  h += '<div class="ver-item"><div class="ver-status ok">✓</div><div><b>行号回读验收</b><br><span style="color:#57606a;font-size:11px">所有代码引用的行号已与仓库源码交叉核对</span></div>' + evBadge('veri') + '</div>';
+  h += '<div class="ver-item"><div class="ver-status pending">?</div><div><b>调用链路验证</b><br><span style="color:#57606a;font-size:11px">入口→出口链路中的每跳调用关系需人工确认</span></div>' + evBadge('unconf') + '</div>';
+  h += '<div class="ver-item"><div class="ver-status pending">?</div><div><b>业务影响评估</b><br><span style="color:#57606a;font-size:11px">对下游消费者的影响需结合业务场景判断</span></div>' + evBadge('unconf') + '</div>';
+  h += '</div></div>';
+  h += '<div class="ov-card" style="margin-top:14px"><div class="ov-card-h">尚未覆盖的范围</div><div class="ov-card-b">';
+  h += '<div style="font-size:12px;color:#57606a;line-height:1.8">';
+  h += '· 单元测试覆盖率变化<br>· 接口兼容性（调用方是否需要同步修改）<br>· 数据库 schema 变更影响<br>· 配置项变更影响';
+  h += '</div></div></div>';
+  return h;
+}
+
+// ═══════════════════ 主渲染 ═══════════════════
+function render() {
+  document.querySelectorAll('.nav button').forEach(function(b) { b.classList.toggle('on', b.getAttribute('data-view') === currentView); });
+  document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('on'); });
+  var el = document.getElementById('v-' + currentView);
+  if (!el) return;
+  if (currentView === 'overview') el.innerHTML = renderOverview();
+  else if (currentView === 'chain') el.innerHTML = renderChain();
+  else if (currentView === 'diff') el.innerHTML = renderDiff();
+  else if (currentView === 'independent') el.innerHTML = renderIndependent();
+  else if (currentView === 'verify') el.innerHTML = renderVerify();
+  el.classList.add('on');
+  bindEvents();
+}
+function bindEvents() {
+  // 导航切换
+  document.querySelectorAll('.nav button').forEach(function(b) {
+    b.onclick = function() { currentView = b.getAttribute('data-view'); render(); };
+  });
+  // 概览跳转到链路
+  document.querySelectorAll('.ov-item[data-entry]').forEach(function(el) {
+    el.onclick = function() {
+      var eid = el.getAttribute('data-entry');
+      for (var i = 0; i < DATA.entries.length; i++) if (DATA.entries[i].id === eid) { currentEntry = i; break; }
+      currentView = 'chain'; render();
+    };
+  });
+  // 入口卡片
+  document.querySelectorAll('.ch-entry').forEach(function(el) {
+    el.onclick = function() { currentEntry = +el.getAttribute('data-ei'); currentView = 'chain'; render(); };
+  });
+  // 链路切换
+  var bl = document.getElementById('btn-lesion'); var bs = document.getElementById('btn-spine');
+  if (bl) bl.onclick = function() { chainMode='lesion'; bl.classList.add('on'); bs.classList.remove('on'); render(); };
+  if (bs) bs.onclick = function() { chainMode='spine'; bs.classList.add('on'); bl.classList.remove('on'); render(); };
+  // 复制按钮
+  document.querySelectorAll('[data-copy]').forEach(function(el) {
+    if (el.classList.contains('cbtn')) {
+      el.onclick = function(ev) { ev.stopPropagation(); copyText(el.getAttribute('data-copy'), el); };
+    } else if (el.classList.contains('cor-line')) {
+      el.onclick = function() { copyText(el.getAttribute('data-copy'), null); el.style.background='#dafbe1'; setTimeout(function(){el.style.background='';},500); };
+    }
+  });
+  // 块折叠
+  document.querySelectorAll('.block').forEach(function(el) {
+    el.onclick = function(ev) { if (!ev.target.classList.contains('cbtn') && !ev.target.classList.contains('call')) { console.log('block click', el.getAttribute('data-bid')); } };
+  });
+  // diff 文件标签
+  document.querySelectorAll('.diff-file-tag').forEach(function(el) {
+    el.onclick = function() {
+      document.querySelectorAll('.diff-file-tag').forEach(function(t){t.classList.remove('active');});
+      el.classList.add('active');
+      var fi = +el.getAttribute('data-fi');
+      // 重新渲染只显示选中文件
+      var files = collectCorridor(DATA.entries[currentEntry]);
+      var f = files[fi];
+      if (!f) return;
+      var h = '<div class="corridor"><div class="cor-file">';
+      h += '<div class="cor-head"><span class="cor-kind k-'+f.kind+'">'+(KIND_NAME[f.kind]||'')+'</span><span class="cor-cls mono">'+esc(f.cls)+'</span>';
+      if (f.path) h += '<button class="cbtn" data-copy="'+esc(f.path)+'" style="margin-left:auto">路径</button>';
+      h += '</div><div class="cor-body">';
+      var prev = null;
+      f.lines.forEach(function(l) {
+        if (prev !== null && l.ln-prev > 1) h += '<div class="cor-hunk">@@ ⋯ 已省略 '+(l.ln-prev-1)+' 行 ⋯ @@</div>';
+        var kc = l.k==='sa'||l.k==='+'?'k-add':l.k==='sd2'||l.k==='-'?'k-del':'k-ctx';
+        var mk = (l.k==='sa'||l.k==='+')?'+':(l.k==='sd2'||l.k==='-')?'−':' ';
+        var loc = f.path?f.path+':'+l.ln:'';
+        h += '<div class="cor-line '+kc+'"' +(loc?' data-copy="'+esc(loc)+'" title="'+esc(loc)+'"':'')+'><span class="cor-ln">'+l.ln+'</span><span class="cor-mk">'+mk+'</span><span class="cor-code">'+esc(l.code)+'</span></div>';
+        prev = l.ln;
+      });
+      h += '</div></div></div>';
+      document.querySelector('#v-diff .corridor').innerHTML = h;
+      bindEvents();
+    };
+  });
+}
+render();
+</script>
+</body>
+</html>

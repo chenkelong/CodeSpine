@@ -17,7 +17,7 @@ function branchDir() {
   }
 }
 
-const TPL = resolve(dirname(fileURLToPath(import.meta.url)), "../templates/spine.html");
+const TPL = resolve(dirname(fileURLToPath(import.meta.url)), "../templates/spine-v2.html");
 
 export function runRender(args) {
   const d = branchDir();
