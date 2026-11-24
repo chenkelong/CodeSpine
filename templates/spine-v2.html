@@ -166,6 +166,7 @@
   .cor-line.k-del .cor-mk { color:#82071e; }
   .cor-line.k-del .cor-code { color:#5a0d12; }
   .cor-line.k-ctx .cor-mk { color:#d0d7de; }
+  .fn-body .cor-line:not(.k-add):not(.k-del) .cor-code { color:#57606a; }
   .cor-line.k-ctx .cor-code { color:#1a1a1a; }
   .cor-hunk { display:flex; align-items:center; gap:8px; background:#ddf4ff; color:#0550ae; font-size:10px; padding:2px 8px 2px 48px; user-select:none; }
   .cor-hunk b { font-weight:700; }
@@ -536,7 +537,7 @@ function renderDiff() {
   files.forEach(function(f, i) {
     var adds = f.lines.filter(function(l){return l.k==='sa'||l.k==='+';}).length;
     var dels = f.lines.filter(function(l){return l.k==='sd2'||l.k==='-';}).length;
-    var short = f.cls.split(/(?=[A-Z])/).slice(-2).join('');
+    var short = f.path.split('/').pop();
     h += '<div class="diff-tree-item' + (i===0?' active':'') + '" data-fi="' + i + '">';
     h += '<span class="dts ' + (f.kind==='new'?'new':f.kind==='changed'?'changed':'unchanged') + '">' + (f.kind==='new'?'A':f.kind==='changed'?'M':'U') + '</span>';
     h += '<span class="dtn mono">' + esc(short) + '</span>';
@@ -589,42 +590,60 @@ function findMethod(methods, ln) {
 // ── 函数级 diff 渲染 ──
 function renderDiffByFunction(f) {
   if (!f) return '';
+  var shortName = f.path.split('/').pop();
   var h = '<div class="cor-file">';
-  h += '<div class="cor-head"><span class="cor-kind k-' + f.kind + '">' + (KIND_NAME[f.kind]||f.kind) + '</span><span class="cor-cls mono">' + esc(f.cls) + '</span>';
+  h += '<div class="cor-head"><span class="cor-kind k-' + f.kind + '">' + (KIND_NAME[f.kind]||f.kind) + '</span><span class="cor-cls mono">' + esc(shortName) + '</span>';
   if (f.path) h += '<button class="cbtn" data-copy="' + esc(f.path) + '" style="margin-left:auto">路径</button>';
   h += '</div>';
   var rawFile = null;
   if (RAW && RAW.files) { for (var i = 0; i < RAW.files.length; i++) { if (RAW.files[i].path === f.path) { rawFile = RAW.files[i]; break; } } }
-  if (!rawFile || !rawFile.hunks) { h += '<div style="padding:20px;color:#8c959f;text-align:center">无 diff 数据</div></div>'; return h; }
+  if (!rawFile || !rawFile.hunks) { h += '<div style="padding:20px;color:#8c959f;text-align:center">无 diff</div></div>'; return h; }
   var content = rawFile.content || [];
   var methods = buildMethodMap(content);
-  var attrLines = [], methodGroups = {}, methodOrder = [];
-  rawFile.hunks.forEach(function(hunk) {
-    hunk.lines.forEach(function(l) {
-      var ln = l.newLine || l.oldLine || 0;
-      var kc = l.kind === 'add' ? 'add' : l.kind === 'del' ? 'del' : 'ctx';
-      var m = findMethod(methods, ln);
-      if (m) {
-        if (!methodGroups[m.name]) { methodGroups[m.name] = { name: m.name, start: m.start, lines: [] }; methodOrder.push(m.name); }
-        methodGroups[m.name].lines.push({ ln: ln, code: l.text, kind: kc });
-      } else { attrLines.push({ ln: ln, code: l.text, kind: kc }); }
-    });
-  });
+  var diffLines = {};
+  rawFile.hunks.forEach(function(hk) { hk.lines.forEach(function(l) { var ln = l.newLine || l.oldLine || 0; if (l.kind !== 'ctx') diffLines[ln] = true; }); });
+  var changedMethods = [];
+  var attrLines = [];
+  rawFile.hunks.forEach(function(hk) { hk.lines.forEach(function(l) {
+    var ln = l.newLine || l.oldLine || 0;
+    var kc = l.kind === 'add' ? 'add' : l.kind === 'del' ? 'del' : 'ctx';
+    var m = findMethod(methods, ln);
+    if (m) { if (!changedMethods.find(function(cm){return cm.name===m.name;})) changedMethods.push(m); }
+    else attrLines.push({ln:ln, code:l.text, kind:kc});
+  }); });
+  var lineDiffMap = {};
+  rawFile.hunks.forEach(function(hk) { hk.lines.forEach(function(l) { var ln = l.newLine||l.oldLine||0; lineDiffMap[ln]={kind:l.kind==='add'?'add':l.kind==='del'?'del':'ctx',text:l.text}; }); });
+
   if (attrLines.length) {
-    h += '<div class="fn-group"><div class="fn-head fn-attr"><span class="fn-icon">📦</span><span class="fn-name">属性与导入</span><span class="fn-cnt">' + attrLines.filter(function(l){return l.kind!=='ctx';}).length + ' 项</span></div><div class="cor-body">';
-    attrLines.forEach(function(l) { h += fnDiffLine(l, f.path); });
+    h += '<div class="fn-group"><div class="fn-head fn-attr"><span class="fn-icon">📦</span><span class="fn-name">属性与导入</span><span class="fn-cnt">'+attrLines.filter(function(l){return l.kind!=='ctx';}).length+' 项</span></div><div class="cor-body">';
+    attrLines.forEach(function(l){h+=fnDiffLine(l,f.path);});
     h += '</div></div>';
   }
-  methodOrder.forEach(function(name) {
-    var g = methodGroups[name];
-    var cc = g.lines.filter(function(l){return l.kind!=='ctx';}).length;
-    h += '<div class="fn-group"><div class="fn-head fn-method"><span class="fn-icon">🔧</span><span class="fn-name mono">' + esc(name) + '()</span><span class="fn-loc mono">L' + g.start + '</span><span class="fn-cnt">' + cc + ' 处变更</span></div><div class="cor-body">';
-    var prev = null;
-    g.lines.forEach(function(l) {
-      if (prev !== null && l.ln - prev > 1) h += '<div class="cor-hunk">⋯ ' + (l.ln - prev - 1) + ' 行 ⋯</div>';
-      h += fnDiffLine(l, f.path);
-      prev = l.ln;
-    });
+  changedMethods.forEach(function(m) {
+    var end = m.end;
+    var cc = 0; for (var ln=m.start; ln<=end; ln++) { if (diffLines[ln]) cc++; }
+    h += '<div class="fn-group">';
+    h += '<div class="fn-head fn-method"><span class="fn-icon">🔧</span><span class="fn-name mono">'+esc(shortName.replace(/\.\w+$/,''))+'#'+esc(m.name)+'()</span><span class="fn-loc mono">L'+m.start+'-'+end+'</span><span class="fn-cnt">'+cc+' 处变更</span></div>';
+    h += '<div class="cor-body fn-body">';
+    var lastDiff = 0, rendered = 0;
+    for (var ln=m.start; ln<=end && ln<=content.length; ln++) {
+      var line = content[ln-1]; if (line===undefined) break;
+      var d = lineDiffMap[ln];
+      var kc = d ? (d.kind==='add'?'k-add':d.kind==='del'?'k-del':'') : '';
+      var mk = d ? (d.kind==='add'?'+':d.kind==='del'?'−':' ') : ' ';
+      if (!d && lastDiff>0 && ln-lastDiff>8 && rendered>0) {
+        var hasMore = false;
+        for (var l2=ln; l2<=end; l2++) { if (diffLines[l2]) { hasMore=true; break; } }
+        if (hasMore) {
+          h += '<div class="cor-hunk">⋯ '+(ln-lastDiff-1)+' 行未变更 ⋯</div>';
+          var nd = ln; for (var l3=ln; l3<=end; l3++) { if (diffLines[l3]) { nd=l3; break; } }
+          ln = Math.max(ln, nd-2); lastDiff = ln; continue;
+        }
+      }
+      if (d) lastDiff = ln;
+      h += '<div class="cor-line '+kc+'" data-copy="'+esc(f.path+':'+ln)+'" title="'+esc(f.path+':'+ln)+'"><span class="cor-ln">'+ln+'</span><span class="cor-mk">'+mk+'</span><span class="cor-code">'+esc(line)+'</span></div>';
+      rendered++;
+    }
     h += '</div></div>';
   });
   h += '</div>';
