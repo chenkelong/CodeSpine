@@ -557,26 +557,41 @@ function renderDiff() {
 function buildMethodMap(content) {
   if (!content) return [];
   var methods = [];
-  var kw = ['if','for','while','switch','catch','return','new','throw','else','do','try','assert'];
   for (var i = 0; i < content.length; i++) {
-    var raw = content[i];
-    var trimmed = raw.trim();
-    if (!trimmed || trimmed.indexOf('(') < 0) continue;
-    if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('@') || trimmed.startsWith('/*')) continue;
-    var indent = raw.length - raw.replace(/^\s+/, '').length;
-    if (indent !== 4 && raw.charAt(0) !== '\t') continue;
-    var fw = trimmed.split(/\s+/)[0].toLowerCase().replace(/[^a-z]/g, '');
-    if (kw.indexOf(fw) >= 0) continue;
-    if (trimmed.indexOf('=') >= 0 && trimmed.indexOf('(') > trimmed.indexOf('=')) continue;
+    var line = content[i]; // 原始行（含缩进）
+    var trimmed = line.trim();
+    // 必须以 public/private/protected 开头（Java 方法声明的标准形式）
+    if (!/^(public|private|protected)\s/.test(trimmed)) continue;
+    // 必须包含 ( （有参数列表）
+    if (trimmed.indexOf('(') < 0) continue;
+    // 必须以 { 结尾（或下一行是 {）
+    if (!trimmed.endsWith('{') && !trimmed.endsWith('{ ')) {
+      // 检查下一行是否是 {
+      var next = i + 1 < content.length ? content[i + 1].trim() : '';
+      if (next !== '{') continue;
+    }
+    // 排除类/接口/枚举声明
+    if (/\b(class|interface|enum)\s+\w/.test(trimmed)) continue;
+    // 提取方法名：( 前最后一个 word
     var pi = trimmed.indexOf('(');
     var bp = trimmed.substring(0, pi).trim();
     var ws = bp.split(/\s+/);
     var name = ws[ws.length - 1];
     if (name && name.length > 1 && /^[a-zA-Z_]/.test(name)) {
-      methods.push({ name: name, start: i + 1, end: content.length });
+      // 找方法结束：从声明行往下，找与声明行缩进相同的 }
+      var indent = line.length - line.replace(/^\s+/, '').length;
+      var end = i + 1;
+      for (var j = i + 1; j < content.length; j++) {
+        var l2 = content[j];
+        var t2 = l2.trim();
+        var ind2 = l2.length - l2.replace(/^\s+/, '').length;
+        if (t2 === '}' && ind2 === indent) { end = j + 1; break; } // 1-based
+        if (ind2 === indent && /^\/\*\*/.test(t2)) { end = j; break; } // 下一个 javadoc
+        if (ind2 <= indent && t2 === '}' ) { end = j + 1; break; }
+      }
+      methods.push({ name: name, start: i + 1, end: end });
     }
   }
-  for (var j = 0; j < methods.length - 1; j++) methods[j].end = methods[j + 1].start - 1;
   return methods;
 }
 
