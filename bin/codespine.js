@@ -28,12 +28,11 @@ if (cmd === "ct") {
   console.log(`码脊 CodeSpine —— 代码断层扫描 v0.1.0
 
 用法（在 git 项目目录下执行）:
-  codespine ct      断层扫描：完整提取 diff 原始数据 → spine-raw.json
-                    选项: --base origin/master  --head HEAD  -o spine-raw.json  --no-content
-  codespine audit   验收 AI 产出的 spine.json（行号回读 + 边界检查）
-                    选项: spine.json 路径  --repo 仓库根路径
-  codespine render  渲染 spine.json → 脊椎视图 HTML（样式内置，AI 不可改）
-                    选项: spine.json 路径  -o review.html
+  codespine ct      断层扫描 → .codespine/<分支>/spine-raw.json（默认对比 master/main）
+                    选项: --base origin/xxx  --head HEAD  -o 路径  --no-content
+  codespine audit   验收 spine.json（默认 .codespine/<分支>/，--raw 默认读同目录快照）
+  codespine render  渲染 → .codespine/<分支>/review.html（样式内置，AI 不可改）
+  所有产物都在 .codespine/<分支名>/ 下归档，建议将 .codespine/ 加入 .gitignore
 
 完整流程（AI 由你的 agent 提供，见 prompts/ 与 platforms/）:
   codespine ct → AI 按 prompts/ANALYSIS.md 生成 spine.json → codespine audit → codespine render`);

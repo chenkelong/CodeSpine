@@ -107,7 +107,6 @@ export async function runCt(args) {
     if (!base) throw new Error("找不到默认基准分支（尝试过 origin/master / origin/main / master / main），请用 --base 指定。");
   }
   const headRef = String(args.head || "HEAD");
-  const out = String(args.o || "spine-raw.json");
   const withContent = args["no-content"] !== true;
 
   try { git(cwd, "rev-parse", "--verify", base); }
@@ -120,6 +119,8 @@ export async function runCt(args) {
   try { branch = git(cwd, "rev-parse", "--abbrev-ref", headRef).trim(); } catch {}
   let remote = "";
   try { remote = git(cwd, "remote", "get-url", "origin").trim(); } catch {}
+  const branchDir = String(branch || headRef).replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");
+  const out = String(args.o || `.codespine/${branchDir}/spine-raw.json`);
 
   const diffText = git(cwd, "diff", "--no-color", "-M", mergeBase, headSha);
   const files = parseDiff(diffText);
@@ -155,5 +156,6 @@ export async function runCt(args) {
   console.log(`  变更   ${files.length} 文件 · ${doc.summary.hunks} hunks · +${additions} −${deletions}`);
   console.log(`  自检   ${issues.length === 0 ? "通过（与 numstat 交叉核对一致）" : issues.length + " 个问题：\n    " + issues.join("\n    ")}`);
   console.log(`  产出   ${out}${withContent ? "（含新侧内容快照）" : ""}`);
+  console.log(`  提示   建议将 .codespine/ 加入 .gitignore`);
   return issues.length ? 2 : 0;
 }

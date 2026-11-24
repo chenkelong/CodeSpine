@@ -1,13 +1,29 @@
 // codespine audit —— 验收器：行号回读 + 边界检查（骨架层是事实，错一格都不行）
 // 回读顺序：--raw 内容快照（推荐，不依赖工作区状态）→ --repo 工作区 → 当前目录
-import { readFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { resolve, join } from "node:path";
+import { execFileSync } from "node:child_process";
+
+function branchDir() {
+  try {
+    const b = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { encoding: "utf-8" }).trim();
+    return String(b).replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");
+  } catch {
+    try {
+      const dirs = readdirSync(".codespine").filter(d => !d.startsWith("."));
+      if (dirs.length === 1) return dirs[0];
+    } catch {}
+    return "";
+  }
+}
 
 export function runAudit(args) {
-  const spinePath = args._[0] || "spine.json";
+  const d = branchDir();
+  const spinePath = args._[0] || (d ? `.codespine/${d}/spine.json` : "spine.json");
   const repo = resolve(String(args.repo || "."));
   const data = JSON.parse(readFileSync(spinePath, "utf-8"));
-  const raw = args.raw ? JSON.parse(readFileSync(String(args.raw), "utf-8")) : null;
+  const rawPath = args.raw === true ? (d ? `.codespine/${d}/spine-raw.json` : "spine-raw.json") : (typeof args.raw === "string" ? args.raw : null);
+  const raw = rawPath ? JSON.parse(readFileSync(rawPath, "utf-8")) : null;
   const rawByPath = new Map((raw ? raw.files || [] : []).filter(f => f.content).map(f => [f.path, f.content]));
   const errors = [], warnings = [];
   const cache = {};
@@ -59,7 +75,7 @@ export function runAudit(args) {
   for (const e of data.entries || []) walk(e.chain, e.id || e.path || "?");
   for (const o of data.orphans || []) walk([o], "未挂链");
 
-  console.log(`码脊 audit —— ${spinePath}${raw ? "（回读：" + String(args.raw) + "）" : ""}`);
+  console.log(`码脊 audit —— ${spinePath}${raw ? "（回读：" + rawPath + "）" : ""}`);
   console.log(`  错误 ${errors.length} · 警告 ${warnings.length}`);
   errors.forEach(x => console.log("  ✗ " + x));
   warnings.slice(0, 20).forEach(x => console.log("  ⚠ " + x));

@@ -1,13 +1,28 @@
 // codespine render —— 数据进、HTML 出；样式全部来自内置模板，AI 碰不到
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
+
+function branchDir() {
+  try {
+    const b = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { encoding: "utf-8" }).trim();
+    return String(b).replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");
+  } catch {
+    try {
+      const dirs = readdirSync(".codespine").filter(x => !x.startsWith("."));
+      if (dirs.length === 1) return dirs[0];
+    } catch {}
+    return "";
+  }
+}
 
 const TPL = resolve(dirname(fileURLToPath(import.meta.url)), "../templates/spine.html");
 
 export function runRender(args) {
-  const spinePath = args._[0] || "spine.json";
-  const out = String(args.o || spinePath.replace(/\.json$/, "") + ".html");
+  const d = branchDir();
+  const spinePath = args._[0] || (d ? `.codespine/${d}/spine.json` : "spine.json");
+  const out = String(args.o || (d ? `.codespine/${d}/review.html` : spinePath.replace(/\.json$/, "") + ".html"));
   const data = JSON.parse(readFileSync(spinePath, "utf-8"));
   let tpl = readFileSync(TPL, "utf-8");
 
