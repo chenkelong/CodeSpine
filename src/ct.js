@@ -97,7 +97,15 @@ export async function runCt(args) {
   if (!existsSync(resolve(cwd, ".git"))) {
     throw new Error(`当前目录不是 git 仓库（${cwd}）。请在 git 项目根目录执行，或用 -C 指定路径。`);
   }
-  const base = String(args.base || "origin/master");
+  const baseArg = args.base ? String(args.base) : null;
+  let base = baseArg;
+  if (!base) {
+    // 智能默认：origin/master → origin/main → master → main
+    for (const c of ["origin/master", "origin/main", "master", "main"]) {
+      try { git(cwd, "rev-parse", "--verify", c); base = c; break; } catch {}
+    }
+    if (!base) throw new Error("找不到默认基准分支（尝试过 origin/master / origin/main / master / main），请用 --base 指定。");
+  }
   const headRef = String(args.head || "HEAD");
   const out = String(args.o || "spine-raw.json");
   const withContent = args["no-content"] !== true;
