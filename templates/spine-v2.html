@@ -260,6 +260,14 @@
   .dtn { flex:1; font-size:11px; font-weight:600; color:#1a1a1a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .dtc { flex-shrink:0; font-size:10px; font-family:ui-monospace,Menlo,monospace; }
   .diff-main { flex:1; min-width:0; overflow-x:auto; }
+  /* 全量索引行 */
+  .inv-row { display:grid; grid-template-columns:48px 1fr 200px; gap:8px; align-items:center; padding:5px 0; border-bottom:1px solid #f0f2f4; }
+  .inv-row:last-child { border-bottom:0; }
+  .inv-type { text-align:center; font-size:10px; font-weight:700; border-radius:3px; padding:2px 0; flex-shrink:0; }
+  .inv-new { background:#dafbe1; color:#116329; }
+  .inv-mod { background:#ddf4ff; color:#0550ae; }
+  .inv-cls { font-size:11.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .inv-loc { font-size:10.5px; color:#57606a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; }
   /* 验证情况圆角 */
   .ver-row { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid #f0f2f4; }
   .ver-row:last-child { border-bottom:0; }
@@ -282,6 +290,16 @@
   .fn-group.folded .cor-body { display:none; }
   .fn-group.folded .fn-head::after { content:'▸'; margin-left:6px; color:#57606a; }
   .fn-group:not(.folded) .fn-head::after { content:'▾'; margin-left:6px; color:#57606a; }
+  /* 验证质量行 */
+  .vq-row { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid #f0f2f4; }
+  .vq-row:last-child { border-bottom:0; }
+  .vq-ic { flex-shrink:0; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; }
+  .vq-ok { background:#dafbe1; color:#1a7f37; }
+  .vq-pend { background:#fff8c5; color:#9a6700; }
+  .vq-act { background:#ddf4ff; color:#0550ae; }
+  .vq-body { flex:1; min-width:0; }
+  .vq-t { font-size:13px; font-weight:700; color:#1a1a1a; margin-bottom:2px; }
+  .vq-d { font-size:11.5px; color:#57606a; line-height:1.6; }
   .footer { text-align:center; font-size:10px; color:#8c959f; padding:8px 0 20px; }
 </style>
 </head>
@@ -692,7 +710,12 @@ function renderIndependent() {
     h += '<div class="ov-card" style="margin-top:16px"><div class="ov-card-h">全量文件索引（' + cov.inventory.length + '）· 无遗漏</div><div class="ov-card-b">';
     h += '<table class="mt"><tr><th>文件</th><th style="width:34px">状态</th><th>归属</th></tr>';
     cov.inventory.forEach(function(it) {
-      h += '<tr><td class="mono">' + esc(it.cls) + '</td><td>' + (it.type==='new'?'新增':'修改') + '</td><td style="color:#424a53">' + esc(it.loc) + '</td></tr>';
+      var locShort = esc(it.loc || '').split('；')[0];
+      h += '<div class="inv-row">';
+      h += '<span class="inv-type ' + (it.type === 'new' ? 'inv-new' : 'inv-mod') + '">' + (it.type === 'new' ? '新增' : '修改') + '</span>';
+      h += '<span class="inv-cls mono" title="' + esc(it.cls) + '">' + esc(it.cls) + '</span>';
+      h += '<span class="inv-loc" title="' + esc(it.loc) + '">' + locShort + '</span>';
+      h += '</div>';
     });
     h += '</table></div></div>';
   }
@@ -701,15 +724,46 @@ function renderIndependent() {
 
 // ═══════════════════ 验证情况视图 ═══════════════════
 function renderVerify() {
-  var h = '<div class="ov-card"><div class="ov-card-h">验证项目</div><div class="ov-card-b">';
-  h += '<div class="ver-row"><div class="ver-ic ver-ok"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg></div><div><b>行号回读验收</b><br><span style="color:#57606a;font-size:11px">所有代码引用的行号已与仓库源码交叉核对</span></div>' + evBadge('veri') + '</div>';
-  h += '<div class="ver-row"><div class="ver-ic ver-pend"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM7.25 5.75a.75.75 0 0 1 1.5 0v3a.75.75 0 0 1-1.5 0v-3ZM8 11.5a.875.875 0 1 1 0-1.75.875.875 0 0 1 0 1.75Z"/></svg></div><div><b>调用链路验证</b><br><span style="color:#57606a;font-size:11px">入口→出口链路中的每跳调用关系需人工确认</span></div>' + evBadge('unconf') + '</div>';
-  h += '<div class="ver-row"><div class="ver-ic ver-pend"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM7.25 5.75a.75.75 0 0 1 1.5 0v3a.75.75 0 0 1-1.5 0v-3ZM8 11.5a.875.875 0 1 1 0-1.75.875.875 0 0 1 0 1.75Z"/></svg></div><div><b>业务影响评估</b><br><span style="color:#57606a;font-size:11px">对下游消费者的影响需结合业务场景判断</span></div>' + evBadge('unconf') + '</div>';
+  var h = '<div style="max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:16px">';
+
+  // 第一部分：本次分析的质量
+  h += '<div class="ov-card"><div class="ov-card-h">分析质量</div><div class="ov-card-b" style="padding:4px 14px">';
+  h += '<div class="vq-row">';
+  h += '<div class="vq-ic vq-ok"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg></div>';
+  h += '<div class="vq-body"><div class="vq-t">行号回读验收</div><div class="vq-d">所有代码引用的行号已通过 codespine audit 与仓库源码交叉核对</div></div>';
+  h += '<span class="ev ev-veri">已验证</span></div>';
+  h += '<div class="vq-row">';
+  h += '<div class="vq-ic vq-pend"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM7.25 5.75a.75.75 0 0 1 1.5 0v3a.75.75 0 0 1-1.5 0v-3ZM8 11.5a.875.875 0 1 1 0-1.75.875.875 0 0 1 0 1.75Z"/></svg></div>';
+  h += '<div class="vq-body"><div class="vq-t">调用链路核实</div><div class="vq-d">入口 → 变更类的调用路径中，中间层是否遗漏需人工沿代码走一遍</div></div>';
+  h += '<span class="ev ev-unconf">待确认</span></div>';
   h += '</div></div>';
-  h += '<div class="ov-card" style="margin-top:14px"><div class="ov-card-h">尚未覆盖的范围</div><div class="ov-card-b">';
-  h += '<div style="font-size:12px;color:#57606a;line-height:1.8">';
-  h += '· 单元测试覆盖率变化<br>· 接口兼容性（调用方是否需要同步修改）<br>· 数据库 schema 变更影响<br>· 配置项变更影响';
-  h += '</div></div></div>';
+
+  // 第二部分：评审者需要做的事
+  h += '<div class="ov-card"><div class="ov-card-h">建议核实（评审者操作）</div><div class="ov-card-b" style="padding:4px 14px">';
+  var sugg = [
+    { t: '接口兼容性', d: 'migrateTaskValues 签名变更（新增第三参数 + 返回值从 void 改为 Set<String>），所有调用方是否已同步修改？' },
+    { t: '数据一致性', d: '指标归属前置到任务删建之前，是否存在时序依赖导致旧归属数据被误迁移？' },
+    { t: '边界条件', d: 'allowedTargetIdsByTaskId 为 null / 空集合 / 未包含目标任务时，过滤行为是否符合预期？' },
+  ];
+  sugg.forEach(function(s) {
+    h += '<div class="vq-row">';
+    h += '<div class="vq-ic vq-act"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0V2.5A.75.75 0 0 1 8 1.5Zm0 10.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 12Zm5.65-7.65a.75.75 0 0 1 0 1.06l-1.06 1.06a.75.75 0 1 1-1.06-1.06l1.06-1.06a.75.75 0 0 1 1.06 0Zm-8.48 8.48a.75.75 0 0 1 0 1.06L4.05 15a.75.75 0 0 1-1.06-1.06l1.06-1.06a.75.75 0 0 1 1.06 0ZM14.5 8a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 14.5 8ZM4 8a.75.75 0 0 1-.75.75H1.75a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 4 8Zm8.65 4.65a.75.75 0 0 1-1.06 0l-1.06-1.06a.75.75 0 1 1 1.06-1.06l1.06 1.06a.75.75 0 0 1 0 1.06Zm-8.48-8.48a.75.75 0 0 1-1.06 0L1.05 3.05a.75.75 0 0 1 1.06-1.06l1.06 1.06a.75.75 0 0 1 0 1.06Z"/></svg></div>';
+    h += '<div class="vq-body"><div class="vq-t">' + s.t + '</div><div class="vq-d">' + s.d + '</div></div>';
+    h += '</div>';
+  });
+  h += '</div></div>';
+
+  // 第三部分：本次分析未覆盖的范围
+  h += '<div class="ov-card"><div class="ov-card-h">尚未覆盖</div><div class="ov-card-b" style="padding:4px 14px">';
+  ['单元测试覆盖率变化', '接口兼容性（调用方是否需要同步修改）', '数据库 schema 变更影响', '配置项变更影响'].forEach(function(item) {
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0">';
+    h += '<span class="ev ev-gap">未覆盖</span>';
+    h += '<span style="font-size:12px;color:#424a53">' + item + '</span>';
+    h += '</div>';
+  });
+  h += '</div></div>';
+
+  h += '</div>';
   return h;
 }
 
