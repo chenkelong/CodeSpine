@@ -19,7 +19,8 @@ files[]:
 ## spine.json（AI 产出，render 的输入）
 
 ```
-meta:      { title, branch, files, additions, deletions, summary, generatedBy }
+meta:      { title, branch, files, additions, deletions, summary, generatedBy,
+             plainSummary: { what, why, impact, branch, ticket, commits[] } }  # 通俗版核心描述
 entries[]: # 每个受影响 HTTP 入口一条链
   id / http / path / urls[] / group
   state: grey(入口未变更,下游有变更) | solid(入口自身变更)
