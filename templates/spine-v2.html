@@ -687,6 +687,7 @@ function bindEvents() {
   document.querySelectorAll('#chain-left .node[data-uid]').forEach(function(el) {
     el.onclick = function(ev) {
       if (ev.target.classList.contains('cbtn') || ev.target.classList.contains('call')) return;
+      if (ev.target.closest('.block')) return;
       var uid = el.getAttribute('data-uid');
       DATA.entries[currentEntry].chain && (function walk(nodes) {
         nodes.forEach(function(n) {
@@ -699,6 +700,7 @@ function bindEvents() {
   });
   document.querySelectorAll('#chain-left .block[data-bid]').forEach(function(el) {
     el.onclick = function(ev) {
+      ev.stopPropagation();
       if (ev.target.classList.contains('cbtn') || ev.target.classList.contains('call')) return;
       var bid = +el.getAttribute('data-bid');
       if (BLK[bid]) { selectedBlock = BLK[bid]; selectedNode = null; renderRightPanel(); }
